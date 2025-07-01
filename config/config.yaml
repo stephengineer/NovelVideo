@@ -1,0 +1,104 @@
+# 项目配置文件
+project:
+  name: "novel_video_generator"
+  version: "1.0.0"
+  description: "小说视频生成系统"
+
+# 文件路径配置
+paths:
+  input_dir: "data/input"
+  output_dir: "data/output"
+  temp_dir: "data/temp"
+  logs_dir: "logs"
+  assets_dir: "assets"
+  fonts_dir: "assets/fonts"
+  templates_dir: "assets/templates"
+
+# 数据库配置
+database:
+  type: "sqlite"
+  path: "data/database/novel_video.db"
+  pool_size: 10
+  max_overflow: 20
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
+  rotation: "100 MB"
+  retention: "30 days"
+  compression: "zip"
+
+# 火山引擎配置
+volcengine:
+  access_key: "${VOLCENGINE_ACCESS_KEY}"
+  secret_key: "${VOLCENGINE_SECRET_KEY}"
+  region: "cn-north-1"
+  endpoints:
+    tts: "https://open.volcengineapi.com"
+    image_gen: "https://open.volcengineapi.com"
+    video_gen: "https://open.volcengineapi.com"
+
+# DeepSeek配置
+deepseek:
+  api_key: "${DEEPSEEK_API_KEY}"
+  base_url: "https://api.deepseek.com"
+  model: "deepseek-chat"
+  max_tokens: 4000
+  temperature: 0.7
+
+# 视频处理配置
+video:
+  fps: 30
+  resolution: [1920, 1080]
+  codec: "libx264"
+  audio_codec: "aac"
+  bitrate: "5000k"
+  audio_bitrate: "192k"
+  preset: "medium"
+
+# 音频配置
+audio:
+  sample_rate: 44100
+  channels: 2
+  format: "mp3"
+
+# 文本转语音配置
+tts:
+  voice: "zh_female_1"
+  speed: 1.0
+  volume: 1.0
+  pitch: 1.0
+
+# 图像生成配置
+image_gen:
+  width: 1920
+  height: 1080
+  style: "realistic"
+  quality: "high"
+
+# 视频生成配置
+video_gen:
+  duration: 10
+  transition: "fade"
+  effects: ["zoom", "pan"]
+
+# 任务调度配置
+scheduler:
+  max_concurrent_tasks: 3
+  task_timeout: 3600  # 1小时
+  retry_attempts: 3
+  retry_delay: 300  # 5分钟
+
+# 分镜脚本配置
+storyboard:
+  max_scenes_per_chapter: 10
+  min_scene_duration: 5
+  max_scene_duration: 30
+  transition_duration: 1.0
+
+# 文件清理配置
+cleanup:
+  auto_cleanup: true
+  temp_file_retention: 24  # 小时
+  output_file_retention: 168  # 7天 

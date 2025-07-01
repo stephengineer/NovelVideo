@@ -1,0 +1,29 @@
+# 核心依赖
+moviepy==2.2.1
+Pillow==10.0.1
+numpy==1.24.3
+requests==2.31.0
+python-dotenv==1.0.0
+
+# 日志和配置
+loguru==0.7.2
+pyyaml==6.0.1
+
+# 异步处理
+asyncio-mqtt==0.16.1
+aiofiles==23.2.1
+
+# 数据库
+sqlite3
+sqlalchemy==2.0.23
+
+# 文件处理
+pathlib
+shutil
+
+# 火山引擎SDK (需要根据官方文档调整)
+# volcengine==1.0.0
+
+# 其他工具
+tqdm==4.66.1
+click==8.1.7 
