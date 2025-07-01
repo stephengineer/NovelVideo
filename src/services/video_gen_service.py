@@ -16,12 +16,12 @@ class VideoGenService:
     """豆包图生视频服务类"""
     
     def __init__(self):
-        self.api_key = config.get('doubao_video.api_key')
-        self.base_url = config.get('doubao_video.base_url')
+        self.api_key = config.get('doubao.api_key')
+        self.base_url = config.get('doubao.base_url')
         self.logger = get_logger('video_gen_service')
         
         if not self.api_key:
-            raise ValueError("豆包图生视频API密钥未配置")
+            raise ValueError("豆包API密钥未配置")
     
     def generate_video_from_image(self, image_path: str, output_path: str, task_id: str,
                                  duration: int = None, transition: str = None,
@@ -94,7 +94,7 @@ class VideoGenService:
                     video_url = final_result.get('video_url')
                     if video_url and self._download_file(video_url, output_path):
                         self.logger.info(f"视频生成成功 | 任务: {task_id} | 文件: {output_path}")
-                        db_manager.log_api_call('doubao_video', 'generate', 'success', duration)
+                        db_manager.log_api_call('doubao', 'video_generate', 'success', duration)
                         return True
                     else:
                         raise Exception("下载视频文件失败")
@@ -106,13 +106,13 @@ class VideoGenService:
                         with open(output_path, 'wb') as f:
                             f.write(base64.b64decode(video_data))
                         self.logger.info(f"视频生成成功 | 任务: {task_id} | 文件: {output_path}")
-                        db_manager.log_api_call('doubao_video', 'generate', 'success', duration)
+                        db_manager.log_api_call('doubao', 'video_generate', 'success', duration)
                         return True
                     else:
                         raise Exception("未获取到视频数据")
             else:
                 error_msg = f"图生视频API调用失败: {response.status_code} - {response.text}"
-                db_manager.log_api_call('doubao_video', 'generate', 'error', duration, 
+                db_manager.log_api_call('doubao', 'video_generate', 'error', duration, 
                                       error_message=error_msg)
                 raise Exception(error_msg)
                     

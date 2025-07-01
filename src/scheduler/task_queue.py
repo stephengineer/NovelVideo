@@ -43,6 +43,11 @@ class TaskQueue:
         except queue.Empty:
             return None
     
+    def stop(self):
+        """停止队列"""
+        # 清空队列并通知所有等待的线程
+        self.clear()
+    
     def remove_task(self, task_id: str) -> bool:
         """从队列移除任务"""
         with self.lock:

@@ -16,13 +16,13 @@ class TTSService:
     """豆包语音TTS服务类"""
     
     def __init__(self):
-        self.api_key = config.get('doubao_tts.api_key')
-        self.base_url = config.get('doubao_tts.base_url')
-        self.app_id = config.get('doubao_tts.app_id')
+        self.api_key = config.get('doubao.api_key')
+        self.base_url = config.get('doubao.base_url')
+        self.app_id = config.get('doubao.app_id')
         self.logger = get_logger('tts_service')
         
         if not self.api_key:
-            raise ValueError("豆包语音API密钥未配置")
+            raise ValueError("豆包API密钥未配置")
     
     def generate_speech(self, text: str, output_path: str, task_id: str,
                        voice: str = None, speed: float = None, 
@@ -92,7 +92,7 @@ class TTSService:
                     audio_url = final_result.get('audio_url')
                     if audio_url and self._download_file(audio_url, output_path):
                         self.logger.info(f"TTS生成成功 | 任务: {task_id} | 文件: {output_path}")
-                        db_manager.log_api_call('doubao_tts', 'synthesize', 'success', duration)
+                        db_manager.log_api_call('doubao', 'tts_synthesize', 'success', duration)
                         return True
                     else:
                         raise Exception("下载音频文件失败")
@@ -104,13 +104,13 @@ class TTSService:
                         with open(output_path, 'wb') as f:
                             f.write(base64.b64decode(audio_data))
                         self.logger.info(f"TTS生成成功 | 任务: {task_id} | 文件: {output_path}")
-                        db_manager.log_api_call('doubao_tts', 'synthesize', 'success', duration)
+                        db_manager.log_api_call('doubao', 'tts_synthesize', 'success', duration)
                         return True
                     else:
                         raise Exception("未获取到音频数据")
             else:
                 error_msg = f"TTS API调用失败: {response.status_code} - {response.text}"
-                db_manager.log_api_call('doubao_tts', 'synthesize', 'error', duration, 
+                db_manager.log_api_call('doubao', 'tts_synthesize', 'error', duration, 
                                       error_message=error_msg)
                 raise Exception(error_msg)
                     

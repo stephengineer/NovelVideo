@@ -29,29 +29,14 @@ logging:
   retention: "30 days"
   compression: "zip"
 
-# 豆包大模型配置
+# 豆包统一配置
 doubao:
   api_key: "${DOUBAO_API_KEY}"
   base_url: "https://ark.cn-beijing.volces.com"
   model: "doubao-seed-1.6"
   max_tokens: 4000
   temperature: 0.7
-
-# 豆包语音配置
-doubao_tts:
-  api_key: "${DOUBAO_TTS_API_KEY}"
-  base_url: "https://open.volcengineapi.com"
-  app_id: "${DOUBAO_TTS_APP_ID}"
-
-# 豆包文生图配置
-doubao_image:
-  api_key: "${DOUBAO_IMAGE_API_KEY}"
-  base_url: "https://ark.cn-beijing.volces.com"
-
-# 豆包图生视频配置
-doubao_video:
-  api_key: "${DOUBAO_VIDEO_API_KEY}"
-  base_url: "https://ark.cn-beijing.volces.com"
+  app_id: "${DOUBAO_APP_ID}"
 
 # 视频处理配置
 video:

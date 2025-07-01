@@ -39,7 +39,7 @@ class TaskScheduler:
         for i in range(self.max_concurrent_tasks):
             worker = TaskWorker(f"worker-{i+1}", self.task_queue, self)
             self.workers.append(worker)
-            worker.start()
+            worker.start()  # 使用start()而不是run()
         
         # 启动监控线程
         self._start_monitor()
@@ -48,11 +48,19 @@ class TaskScheduler:
         """停止调度器"""
         self.logger.info("停止任务调度器")
         
+        # 停止任务队列
+        self.task_queue.stop()
+        
         # 停止所有工作线程
         for worker in self.workers:
             worker.stop()
         
-        # 等待所有任务完成
+        # 等待所有工作线程结束
+        for worker in self.workers:
+            if worker.is_alive():
+                worker.join(timeout=5)  # 最多等待5秒
+        
+        # 关闭线程池
         self.executor.shutdown(wait=True)
         
         self.logger.info("任务调度器已停止")

@@ -23,7 +23,7 @@ class TaskWorker(threading.Thread):
         self.current_task = None
         
         # 初始化处理器
-        self.novel_processor = NovelProcessor()
+        self.novel_processor = None  # 延迟初始化
     
     def run(self):
         """工作线程主循环"""
@@ -44,6 +44,8 @@ class TaskWorker(threading.Thread):
             except Exception as e:
                 self.logger.error(f"工作线程错误 | ID: {self.worker_id} | 错误: {str(e)}")
                 time.sleep(5)  # 出错后等待5秒再继续
+        
+        self.logger.info(f"工作线程退出 | ID: {self.worker_id}")
     
     def stop(self):
         """停止工作线程"""
@@ -100,6 +102,10 @@ class TaskWorker(threading.Thread):
     def _process_novel_video(self, task_id: str, input_file: str, config_data: Dict) -> bool:
         """处理小说视频生成任务"""
         try:
+            # 延迟初始化处理器
+            if self.novel_processor is None:
+                self.novel_processor = NovelProcessor()
+            
             # 使用小说处理器处理任务
             return self.novel_processor.process_novel(task_id, input_file, config_data)
         except Exception as e:

@@ -7,6 +7,7 @@ Novel Video Generator System Main Program
 import sys
 import os
 import argparse
+import signal
 from pathlib import Path
 from src.core import config, get_logger
 from src.scheduler import TaskScheduler
@@ -31,9 +32,27 @@ def main():
     logger = get_logger('main')
     logger.info("小说视频生成系统启动")
     
+    # 全局调度器变量
+    global_scheduler = None
+    
+    def signal_handler(signum, frame):
+        """信号处理函数"""
+        logger.info("收到退出信号，正在关闭系统...")
+        if global_scheduler:
+            global_scheduler.stop()
+        sys.exit(0)
+    
+    # 注册信号处理器
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     try:
         # 创建任务调度器
         scheduler = TaskScheduler()
+        global_scheduler = scheduler
+        
+        # 启动调度器（所有模式都需要）
+        scheduler.start()
         
         if args.daemon:
             # 守护进程模式
@@ -67,16 +86,20 @@ def main():
         logger.info("系统已关闭")
     except Exception as e:
         logger.error(f"系统运行错误: {str(e)}")
+        scheduler.stop()
         sys.exit(1)
+    finally:
+        # 确保调度器被停止
+        try:
+            scheduler.stop()
+        except:
+            pass
 
 
 def run_daemon_mode(scheduler):
     """守护进程模式"""
     logger = get_logger('main')
     logger.info("启动守护进程模式")
-    
-    # 启动调度器
-    scheduler.start()
     
     try:
         # 保持运行
@@ -241,41 +264,49 @@ def run_interactive_mode(scheduler):
     print("0. 退出")
     print("======================\n")
     
-    while True:
-        try:
-            choice = input("请选择操作 (0-6): ").strip()
-            
-            if choice == '0':
-                break
-            elif choice == '1':
-                input_file = input("请输入小说文件路径: ").strip()
-                if input_file:
-                    submit_task(scheduler, input_file)
-            elif choice == '2':
-                show_system_status(scheduler)
-            elif choice == '3':
-                list_tasks(scheduler)
-            elif choice == '4':
-                task_id = input("请输入任务ID: ").strip()
-                if task_id:
-                    show_task_status(scheduler, task_id)
-            elif choice == '5':
-                task_id = input("请输入任务ID: ").strip()
-                if task_id:
-                    retry_task(scheduler, task_id)
-            elif choice == '6':
-                task_id = input("请输入任务ID: ").strip()
-                if task_id:
-                    cancel_task(scheduler, task_id)
-            else:
-                print("无效选择，请重新输入")
+    try:
+        while True:
+            try:
+                choice = input("请选择操作 (0-6): ").strip()
                 
-        except KeyboardInterrupt:
-            break
-        except Exception as e:
-            logger.error(f"交互模式错误: {str(e)}")
-    
-    logger.info("交互模式结束")
+                if choice == '0':
+                    break
+                elif choice == '1':
+                    input_file = input("请输入小说文件路径: ").strip()
+                    if input_file:
+                        submit_task(scheduler, input_file)
+                elif choice == '2':
+                    show_system_status(scheduler)
+                elif choice == '3':
+                    list_tasks(scheduler)
+                elif choice == '4':
+                    task_id = input("请输入任务ID: ").strip()
+                    if task_id:
+                        show_task_status(scheduler, task_id)
+                elif choice == '5':
+                    task_id = input("请输入任务ID: ").strip()
+                    if task_id:
+                        retry_task(scheduler, task_id)
+                elif choice == '6':
+                    task_id = input("请输入任务ID: ").strip()
+                    if task_id:
+                        cancel_task(scheduler, task_id)
+                else:
+                    print("无效选择，请重新输入")
+                    
+            except KeyboardInterrupt:
+                print("\n收到中断信号，正在退出...")
+                break
+            except EOFError:
+                print("\n收到EOF信号，正在退出...")
+                break
+            except Exception as e:
+                logger.error(f"交互模式错误: {str(e)}")
+                print(f"错误: {str(e)}")
+        
+    finally:
+        logger.info("交互模式结束")
+        # 注意：这里不调用scheduler.stop()，因为主函数会处理
 
 
 if __name__ == "__main__":

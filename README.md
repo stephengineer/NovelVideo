@@ -94,18 +94,9 @@ pip install -r requirements.txt
 3. **配置环境变量**
 创建 `.env` 文件并配置以下变量：
 ```env
-# 豆包大模型API配置
+# 豆包统一API配置
 DOUBAO_API_KEY=your_doubao_api_key
-
-# 豆包语音API配置
-DOUBAO_TTS_API_KEY=your_doubao_tts_api_key
-DOUBAO_TTS_APP_ID=your_doubao_tts_app_id
-
-# 豆包文生图API配置
-DOUBAO_IMAGE_API_KEY=your_doubao_image_api_key
-
-# 豆包图生视频API配置
-DOUBAO_VIDEO_API_KEY=your_doubao_video_api_key
+DOUBAO_APP_ID=your_doubao_app_id
 ```
 
 4. **配置豆包API**
@@ -205,7 +196,8 @@ storyboard:
 用于小说分析和分镜脚本生成，需要在配置文件中设置API密钥和端点。
 
 ### 豆包API服务
-需要配置以下服务：
+豆包系列服务使用统一的API密钥，包括：
+- **豆包大模型服务**：小说分析和分镜脚本生成
 - **豆包语音服务**：文本转语音
 - **豆包文生图服务**：文本生成图像
 - **豆包图生视频服务**：图像生成视频

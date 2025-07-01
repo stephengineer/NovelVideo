@@ -16,12 +16,12 @@ class ImageGenService:
     """豆包文生图服务类"""
     
     def __init__(self):
-        self.api_key = config.get('doubao_image.api_key')
-        self.base_url = config.get('doubao_image.base_url')
+        self.api_key = config.get('doubao.api_key')
+        self.base_url = config.get('doubao.base_url')
         self.logger = get_logger('image_gen_service')
         
         if not self.api_key:
-            raise ValueError("豆包文生图API密钥未配置")
+            raise ValueError("豆包API密钥未配置")
     
     def generate_image(self, prompt: str, output_path: str, task_id: str,
                       width: int = None, height: int = None, 
@@ -90,7 +90,7 @@ class ImageGenService:
                     image_url = final_result.get('image_url')
                     if image_url and self._download_file(image_url, output_path):
                         self.logger.info(f"图像生成成功 | 任务: {task_id} | 文件: {output_path}")
-                        db_manager.log_api_call('doubao_image', 'generate', 'success', duration)
+                        db_manager.log_api_call('doubao', 'image_generate', 'success', duration)
                         return True
                     else:
                         raise Exception("下载图像文件失败")
@@ -102,13 +102,13 @@ class ImageGenService:
                         with open(output_path, 'wb') as f:
                             f.write(base64.b64decode(image_data))
                         self.logger.info(f"图像生成成功 | 任务: {task_id} | 文件: {output_path}")
-                        db_manager.log_api_call('doubao_image', 'generate', 'success', duration)
+                        db_manager.log_api_call('doubao', 'image_generate', 'success', duration)
                         return True
                     else:
                         raise Exception("未获取到图像数据")
             else:
                 error_msg = f"文生图API调用失败: {response.status_code} - {response.text}"
-                db_manager.log_api_call('doubao_image', 'generate', 'error', duration, 
+                db_manager.log_api_call('doubao', 'image_generate', 'error', duration, 
                                       error_message=error_msg)
                 raise Exception(error_msg)
                     
