@@ -58,7 +58,7 @@ class DatabaseManager:
                     task_id TEXT NOT NULL,
                     scene_number INTEGER NOT NULL,
                     scene_description TEXT,
-                    duration REAL,
+                    scene_content TEXT,
                     tts_audio_path TEXT,
                     image_path TEXT,
                     video_path TEXT,
@@ -92,6 +92,7 @@ class DatabaseManager:
                     request_data TEXT,
                     response_data TEXT,
                     error_message TEXT,
+                    usage_info TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -184,16 +185,16 @@ class DatabaseManager:
             return []
     
     def add_storyboard(self, task_id: str, scene_number: int, scene_description: str,
-                      duration: float = None) -> str:
+                      scene_content: str) -> str:
         """添加分镜脚本"""
         try:
             storyboard_id = f"{task_id}_scene_{scene_number}"
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    INSERT INTO storyboards (id, task_id, scene_number, scene_description, duration)
+                    INSERT INTO storyboards (id, task_id, scene_number, scene_description, scene_content)
                     VALUES (?, ?, ?, ?, ?)
-                ''', (storyboard_id, task_id, scene_number, scene_description, duration))
+                ''', (storyboard_id, task_id, scene_number, scene_description, scene_content))
                 conn.commit()
                 return storyboard_id
         except Exception as e:
@@ -262,24 +263,67 @@ class DatabaseManager:
     
     def log_api_call(self, service: str, endpoint: str, status: str, 
                     duration: float, request_data: Dict = None, 
-                    response_data: Dict = None, error_message: str = None) -> bool:
+                    response_data: Dict = None, error_message: str = None,
+                    usage_info: Dict = None) -> bool:
         """记录API调用"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
                     INSERT INTO api_calls (service, endpoint, status, duration, 
-                                         request_data, response_data, error_message)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                         request_data, response_data, error_message, usage_info)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (service, endpoint, status, duration,
                      json.dumps(request_data) if request_data else None,
                      json.dumps(response_data) if response_data else None,
-                     error_message))
+                     error_message,
+                     json.dumps(usage_info) if usage_info else None))
                 conn.commit()
                 return True
         except Exception as e:
             self.logger.error(f"记录API调用失败: {service}, 错误: {str(e)}")
             return False
+
+
+    def get_api_calls(self, service: str = None, status: str = None, limit: int = 100) -> List[Dict]:
+        """获取API调用记录"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                query = 'SELECT * FROM api_calls WHERE 1=1'
+                params = []
+                
+                if service:
+                    query += ' AND service = ?'
+                    params.append(service)
+                
+                if status:
+                    query += ' AND status = ?'
+                    params.append(status)
+                
+                query += ' ORDER BY created_at DESC LIMIT ?'
+                params.append(limit)
+                
+                cursor.execute(query, params)
+                return [dict(row) for row in cursor.fetchall()]
+        except Exception as e:
+            self.logger.error(f"获取API调用记录失败: {str(e)}")
+            return []
+    
+    def get_api_call_by_id(self, call_id: int) -> Optional[Dict]:
+        """根据ID获取API调用记录"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM api_calls WHERE id = ?', (call_id,))
+                row = cursor.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            self.logger.error(f"获取API调用记录失败: {call_id}, 错误: {str(e)}")
+            return None
 
 
 # 全局数据库管理器实例

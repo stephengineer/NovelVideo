@@ -48,6 +48,8 @@ class NovelProcessor:
             
             # 1. 读取小说文本
             novel_text = self._read_novel_file(input_file)
+            self.logger.info(f"小说分析字数: {len(novel_text)}")
+            
             if not novel_text:
                 raise Exception("无法读取小说文件")
             
@@ -104,7 +106,17 @@ class NovelProcessor:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            return content.strip()
+                # 统计字数
+                word_count = len(content)
+                self.logger.info(f"小说原始字数: {word_count}")
+                # 如果字数小于120k，则取全部
+                # 如果字数大于120k，则取开头60k字与结尾60k字
+                start_index = 0
+                end_index = len(content)
+                if word_count > 120000:
+                    start_index = word_count // 2 - 60000
+                    end_index = word_count // 2 + 60000
+                return content[start_index:end_index].strip()
         except Exception as e:
             self.logger.error(f"读取小说文件失败: {file_path}, 错误: {str(e)}")
             return None
@@ -118,7 +130,7 @@ class NovelProcessor:
                     task_id=task_id,
                     scene_number=scene['scene_number'],
                     scene_description=scene['scene_description'],
-                    duration=scene.get('duration', 15)
+                    scene_content=scene['scene_content']
                 )
         except Exception as e:
             self.logger.error(f"保存分镜脚本失败: {task_id}, 错误: {str(e)}")

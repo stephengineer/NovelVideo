@@ -55,46 +55,25 @@ class DoubaoService:
         except Exception as e:
             duration = time.time() - start_time
             self.logger.error(f"小说分析失败 | 任务: {task_id} | 错误: {str(e)}")
-            db_manager.log_api_call('doubao', 'analyze_novel', 'error', duration, 
-                                  error_message=str(e))
+            # 记录分析失败的API调用
+            db_manager.log_api_call(
+                'doubao', 
+                'analyze_novel', 
+                'error', 
+                duration,
+                error_message=str(e)
+            )
             raise
     
     def _build_analysis_prompt(self, novel_text: str) -> str:
         """构建分析提示词"""
         return f"""
-请分析以下小说内容，并生成详细的分镜脚本。要求：
-
-1. 将小说内容分解为多个场景（分镜）
-2. 每个场景包含：
-   - 场景描述（用于图像生成）
-   - 对话或旁白文本（用于TTS）
-   - 建议的持续时间（5-30秒）
-   - 场景类型（室内/室外/特写等）
-
-3. 分镜脚本格式要求：
-   - 场景数量控制在10个以内
-   - 每个场景描述要具体且适合图像生成
-   - 对话文本要自然流畅
-   - 总时长控制在3-5分钟
-
-小说内容：
+分析给定的小说内容，并生成详细的分镜脚本。请仔细阅读小说内容，按照要求进行处理。以下是具体要求：
+1. 将小说内容分解为多个场景(分镜), 场景数量小于20个
+2. 每个场景包含：画面内容、旁白内容
+<小说内容>
 {novel_text}
-
-请以JSON格式返回分镜脚本，格式如下：
-{{
-    "title": "小说标题",
-    "summary": "小说概要",
-    "scenes": [
-        {{
-            "scene_number": 1,
-            "scene_description": "详细的场景描述，用于图像生成",
-            "dialogue": "对话或旁白文本",
-            "duration": 15,
-            "scene_type": "室内/室外/特写",
-            "mood": "场景氛围"
-        }}
-    ]
-}}
+</小说内容>
 """
     
     def _call_api(self, prompt: str, task_id: str) -> Dict[str, Any]:
@@ -104,44 +83,133 @@ class DoubaoService:
             'Content-Type': 'application/json'
         }
         
-        data = {
+        payload = json.dumps({
             'model': self.model,
             'messages': [
+                {
+                    "role": "system",
+                    "content": "你是一位小说分析、解读专家"
+                },
                 {
                     'role': 'user',
                     'content': prompt
                 }
             ],
-            'max_tokens': self.max_tokens,
-            'temperature': self.temperature
-        }
+            "thinking": {
+                "type": "disabled"
+            },
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "novel_analyze",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "summary": {
+                                "type": "string",
+                                "description": "小说概要"
+                            },
+                            "style": {
+                                "type": "string",
+                                "description": "小说风格"
+                            },
+                            "scenes": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "scene_number": {
+                                            "type": "integer",
+                                            "description": "场景编号"
+                                        },
+                                        "scene_content": {
+                                            "type": "string",
+                                            "description": "画面内容"
+                                        },
+                                        "scene_description": {
+                                            "type": "string",
+                                            "description": "场景描述, 小于100字"
+                                        }
+                                    },
+                                    "required": [
+                                        "scene_number",
+                                        "scene_content",
+                                        "scene_description"
+                                    ],
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        "required": [
+                            "summary",
+                            "style",
+                            "scenes"
+                        ],
+                        "additionalProperties": False
+                    },
+                    "strict": True
+                }
+            }
+        })
         
         start_time = time.time()
         
         try:
             response = requests.post(
-                f"{self.base_url}/v1/chat/completions",
+                f"{self.base_url}/api/v3/chat/completions",
                 headers=headers,
-                json=data,
-                timeout=60
+                data=payload
             )
             
             duration = time.time() - start_time
             
             if response.status_code == 200:
                 result = response.json()
-                db_manager.log_api_call('doubao', 'chat_completions', 'success', duration)
+                
+                # 提取token使用情况
+                usage_info = {}
+                if 'usage' in result:
+                    usage_info = {
+                        'completion_tokens': result['usage'].get('completion_tokens', 0),
+                        'prompt_tokens': result['usage'].get('prompt_tokens', 0),
+                        'total_tokens': result['usage'].get('total_tokens', 0)
+                    }
+                
+                # 记录成功的API调用，包含请求、响应数据和token使用情况
+                db_manager.log_api_call(
+                    'doubao', 
+                    'chat_completions', 
+                    'success', 
+                    duration,
+                    request_data=json.loads(payload),
+                    response_data=result,
+                    usage_info=usage_info
+                )
                 return result
             else:
                 error_msg = f"API调用失败: {response.status_code} - {response.text}"
-                db_manager.log_api_call('doubao', 'chat_completions', 'error', duration, 
-                                      error_message=error_msg)
+                # 记录失败的API调用，包含请求数据
+                db_manager.log_api_call(
+                    'doubao', 
+                    'chat_completions', 
+                    'error', 
+                    duration,
+                    request_data=json.loads(payload),
+                    error_message=error_msg
+                )
                 raise Exception(error_msg)
                 
         except requests.exceptions.RequestException as e:
             duration = time.time() - start_time
-            db_manager.log_api_call('doubao', 'chat_completions', 'error', duration, 
-                                  error_message=str(e))
+            # 记录网络异常的API调用，包含请求数据
+            db_manager.log_api_call(
+                'doubao', 
+                'chat_completions', 
+                'error', 
+                duration,
+                request_data=json.loads(payload),
+                error_message=str(e)
+            )
             raise
     
     def _parse_storyboard_response(self, response: Dict[str, Any]) -> Dict[str, Any]:
@@ -196,6 +264,12 @@ class DoubaoService:
         except Exception as e:
             duration = time.time() - start_time
             self.logger.error(f"章节摘要生成失败 | 任务: {task_id} | 错误: {str(e)}")
-            db_manager.log_api_call('doubao', 'generate_summary', 'error', duration, 
-                                  error_message=str(e))
+            # 记录摘要生成失败的API调用
+            db_manager.log_api_call(
+                'doubao', 
+                'generate_summary', 
+                'error', 
+                duration,
+                error_message=str(e)
+            )
             raise 
