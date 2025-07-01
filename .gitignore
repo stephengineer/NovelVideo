@@ -209,3 +209,6 @@ __marimo__/
 # ignore DS_Store in all folders
 .DS_Store
 .vscode
+
+# ignore data folder
+/data
