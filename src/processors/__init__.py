@@ -4,11 +4,9 @@
 """
 
 from .video_processor import VideoProcessor
-from .storyboard_processor import StoryboardProcessor
 from .novel_processor import NovelProcessor
 
 __all__ = [
     'VideoProcessor',
-    'StoryboardProcessor', 
     'NovelProcessor'
 ] 

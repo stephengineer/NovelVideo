@@ -8,7 +8,10 @@ import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from ..core import config, get_logger, db_manager
-from ..services import DoubaoService, TTSService, ImageGenService, VideoGenService
+from ..services.doubao_service import DoubaoService
+from ..services.tts_service import TTSService
+from ..services.image_gen_service import ImageGenService
+from ..services.video_gen_service import VideoGenService
 from ..processors.video_processor import VideoProcessor
 
 
