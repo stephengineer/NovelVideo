@@ -94,16 +94,26 @@ pip install -r requirements.txt
 3. **配置环境变量**
 创建 `.env` 文件并配置以下变量：
 ```env
-# DeepSeek API配置
-DEEPSEEK_API_KEY=your_deepseek_api_key
+# 豆包大模型API配置
+DOUBAO_API_KEY=your_doubao_api_key
 
-# 火山引擎配置
-VOLCENGINE_ACCESS_KEY=your_volcengine_access_key
-VOLCENGINE_SECRET_KEY=your_volcengine_secret_key
+# 豆包语音API配置
+DOUBAO_TTS_API_KEY=your_doubao_tts_api_key
+DOUBAO_TTS_APP_ID=your_doubao_tts_app_id
+
+# 豆包文生图API配置
+DOUBAO_IMAGE_API_KEY=your_doubao_image_api_key
+
+# 豆包图生视频API配置
+DOUBAO_VIDEO_API_KEY=your_doubao_video_api_key
 ```
 
-4. **配置火山引擎API**
-根据火山引擎官方文档配置TTS、图像生成、视频生成API的端点。
+4. **配置豆包API**
+根据火山引擎官方文档配置豆包大模型、语音、文生图、图生视频API：
+- [豆包大模型API文档](https://www.volcengine.com/docs/82379/1494384)
+- [豆包语音API文档](https://www.volcengine.com/docs/6561/1257584)
+- [豆包文生图API文档](https://www.volcengine.com/docs/82379/1541523)
+- [豆包图生视频API文档](https://www.volcengine.com/docs/82379/1520757)
 
 ## 使用方法
 
@@ -191,14 +201,14 @@ storyboard:
 
 ## API服务配置
 
-### DeepSeek API
+### 豆包大模型API
 用于小说分析和分镜脚本生成，需要在配置文件中设置API密钥和端点。
 
-### 火山引擎API
+### 豆包API服务
 需要配置以下服务：
-- **TTS服务**：文本转语音
-- **图像生成服务**：文生图
-- **视频生成服务**：图生视频
+- **豆包语音服务**：文本转语音
+- **豆包文生图服务**：文本生成图像
+- **豆包图生视频服务**：图像生成视频
 
 具体的API调用方式需要根据火山引擎的官方文档进行调整。
 

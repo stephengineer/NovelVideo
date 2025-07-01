@@ -1,5 +1,5 @@
 """
-DeepSeek API服务
+豆包大模型API服务
 负责小说分析和分镜脚本生成
 """
 
@@ -10,19 +10,19 @@ from typing import Dict, List, Optional, Any
 from ..core import config, get_logger, db_manager
 
 
-class DeepSeekService:
-    """DeepSeek API服务类"""
+class DoubaoService:
+    """豆包大模型API服务类"""
     
     def __init__(self):
-        self.api_key = config.get('deepseek.api_key')
-        self.base_url = config.get('deepseek.base_url')
-        self.model = config.get('deepseek.model')
-        self.max_tokens = config.get('deepseek.max_tokens')
-        self.temperature = config.get('deepseek.temperature')
-        self.logger = get_logger('deepseek_service')
+        self.api_key = config.get('doubao.api_key')
+        self.base_url = config.get('doubao.base_url')
+        self.model = config.get('doubao.model')
+        self.max_tokens = config.get('doubao.max_tokens')
+        self.temperature = config.get('doubao.temperature')
+        self.logger = get_logger('doubao_service')
         
         if not self.api_key:
-            raise ValueError("DeepSeek API密钥未配置")
+            raise ValueError("豆包API密钥未配置")
     
     def analyze_novel(self, novel_text: str, task_id: str) -> Dict[str, Any]:
         """
@@ -41,7 +41,7 @@ class DeepSeekService:
             # 构建分析提示词
             prompt = self._build_analysis_prompt(novel_text)
             
-            # 调用DeepSeek API
+            # 调用豆包API
             response = self._call_api(prompt, task_id)
             
             # 解析响应
@@ -55,7 +55,7 @@ class DeepSeekService:
         except Exception as e:
             duration = time.time() - start_time
             self.logger.error(f"小说分析失败 | 任务: {task_id} | 错误: {str(e)}")
-            db_manager.log_api_call('deepseek', 'analyze_novel', 'error', duration, 
+            db_manager.log_api_call('doubao', 'analyze_novel', 'error', duration, 
                                   error_message=str(e))
             raise
     
@@ -98,7 +98,7 @@ class DeepSeekService:
 """
     
     def _call_api(self, prompt: str, task_id: str) -> Dict[str, Any]:
-        """调用DeepSeek API"""
+        """调用豆包API"""
         headers = {
             'Authorization': f'Bearer {self.api_key}',
             'Content-Type': 'application/json'
@@ -130,17 +130,17 @@ class DeepSeekService:
             
             if response.status_code == 200:
                 result = response.json()
-                db_manager.log_api_call('deepseek', 'chat_completions', 'success', duration)
+                db_manager.log_api_call('doubao', 'chat_completions', 'success', duration)
                 return result
             else:
                 error_msg = f"API调用失败: {response.status_code} - {response.text}"
-                db_manager.log_api_call('deepseek', 'chat_completions', 'error', duration, 
+                db_manager.log_api_call('doubao', 'chat_completions', 'error', duration, 
                                       error_message=error_msg)
                 raise Exception(error_msg)
                 
         except requests.exceptions.RequestException as e:
             duration = time.time() - start_time
-            db_manager.log_api_call('deepseek', 'chat_completions', 'error', duration, 
+            db_manager.log_api_call('doubao', 'chat_completions', 'error', duration, 
                                   error_message=str(e))
             raise
     
@@ -196,6 +196,6 @@ class DeepSeekService:
         except Exception as e:
             duration = time.time() - start_time
             self.logger.error(f"章节摘要生成失败 | 任务: {task_id} | 错误: {str(e)}")
-            db_manager.log_api_call('deepseek', 'generate_summary', 'error', duration, 
+            db_manager.log_api_call('doubao', 'generate_summary', 'error', duration, 
                                   error_message=str(e))
             raise 

@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from ..core import config, get_logger, db_manager
-from ..services import DeepSeekService, TTSService, ImageGenService, VideoGenService
+from ..services import DoubaoService, TTSService, ImageGenService, VideoGenService
 from ..processors.video_processor import VideoProcessor
 
 
@@ -19,7 +19,7 @@ class NovelProcessor:
         self.logger = get_logger('novel_processor')
         
         # 初始化服务
-        self.deepseek_service = DeepSeekService()
+        self.doubao_service = DoubaoService()
         self.tts_service = TTSService()
         self.image_gen_service = ImageGenService()
         self.video_gen_service = VideoGenService()
@@ -51,7 +51,7 @@ class NovelProcessor:
             db_manager.update_task_status(task_id, 'running', progress=0.2)
             
             # 2. 分析小说，生成分镜脚本
-            storyboard = self.deepseek_service.analyze_novel(novel_text, task_id)
+            storyboard = self.doubao_service.analyze_novel(novel_text, task_id)
             if not storyboard:
                 raise Exception("生成分镜脚本失败")
             
