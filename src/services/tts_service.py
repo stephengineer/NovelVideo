@@ -7,26 +7,41 @@ import os
 import requests
 import json
 import time
+import uuid
 from pathlib import Path
 from typing import Dict, Any, Optional
 from ..core import config, get_logger, db_manager
-
 
 class TTSService:
     """豆包语音TTS服务类"""
     
     def __init__(self):
-        self.api_key = config.get('doubao.api_key')
-        self.base_url = config.get('doubao.base_url')
-        self.app_id = config.get('doubao.app_id')
+        self.base_url = config.get('tts.base_url')
+        self.api_token = config.get('tts.api_token')
+        self.id = config.get('tts.id')
+        self.token = config.get('tts.token')
+        self.cluster = config.get('tts.cluster')
+        self.voice_type = config.get('tts.voice_type')
+        self.emotion = config.get('tts.emotion')
+        self.enable_emotion = config.get('tts.enable_emotion')
+        self.emotion_scale = config.get('tts.emotion_scale')
+        self.encoding = config.get('tts.encoding')
+        self.speed_ratio = config.get('tts.speed_ratio')
+        self.rate = config.get('tts.rate')
+        self.bitrate = config.get('tts.bitrate')
+        self.explicit_language = config.get('tts.explicit_language')
+        self.context_language = config.get('tts.context_language')
+        self.loudness_ratio = config.get('tts.loudness_ratio')
+        self.with_timestamp = config.get('tts.with_timestamp')
+        self.operation = config.get('tts.operation')
+        self.disable_markdown_filter = config.get('tts.disable_markdown_filter')
+        self.disable_emoji_filter = config.get('tts.disable_emoji_filter')
         self.logger = get_logger('tts_service')
         
-        if not self.api_key:
-            raise ValueError("豆包API密钥未配置")
+        if not self.api_token or not self.id:
+            raise ValueError("火山引擎TTS配置未配置")
     
-    def generate_speech(self, text: str, output_path: str, task_id: str,
-                       voice: str = None, speed: float = None, 
-                       volume: float = None, pitch: float = None) -> bool:
+    def generate_speech(self, text: str, output_path: str, task_id: str, voice_type: str = None, emotion: str = None) -> bool:
         """
         生成语音文件
         
@@ -42,40 +57,52 @@ class TTSService:
         Returns:
             是否成功
         """
+            
         try:
             # 使用配置的默认值
-            voice = voice or config.get('tts.voice', 'BV001_streaming')
-            speed = speed or config.get('tts.speed', 1.0)
-            volume = volume or config.get('tts.volume', 1.0)
-            pitch = pitch or config.get('tts.pitch', 1.0)
-            
-            # 确保输出目录存在
-            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            if voice_type:
+                self.voice_type = voice_type
+            if emotion:
+                self.emotion = emotion
+                self.enable_emotion = True
             
             # 构建请求数据
-            request_data = {
-                'app_id': self.app_id,
-                'text': text,
-                'voice_type': voice,
-                'speed': speed,
-                'volume': volume,
-                'pitch': pitch,
-                'format': 'mp3',
-                'sample_rate': config.get('audio.sample_rate', 44100)
+            payload = {
+                "app": {
+                    "appid": self.id,
+                    "token": self.token,
+                    "cluster": self.cluster
+                },
+                "user": {
+                    "uid": task_id
+                },
+                "audio": {
+                    "voice_type": self.voice_type,
+                    "emotion": self.emotion,
+                    "enable_emotion": self.enable_emotion,
+                    "encoding": self.encoding,
+                    "speed_ratio": self.speed_ratio
+                },
+                "request": {
+                    "reqid": uuid.uuid4().hex,
+                    "text": text,
+                    "with_timestamp": self.with_timestamp,
+                    "operation": self.operation,
+                    "extra_param": f"{{\"disable_markdown_filter\": \"{self.disable_markdown_filter}\",\"disable_emoji_filter\": \"{self.disable_emoji_filter}\"}}"
+                }
             }
             
             # 调用豆包TTS API
             headers = {
-                'Authorization': f'Bearer {self.api_key}',
+                'Authorization': f'Bearer; {self.api_token}',
                 'Content-Type': 'application/json'
             }
             
             start_time = time.time()
             response = requests.post(
-                f"{self.base_url}/tts/v1/synthesize",
+                f"{self.base_url}/api/v1/tts",
                 headers=headers,
-                json=request_data,
-                timeout=60
+                data=json.dumps(payload),
             )
             duration = time.time() - start_time
             
@@ -83,35 +110,24 @@ class TTSService:
                 result = response.json()
                 
                 # 检查任务状态
-                if 'task_id' in result:
-                    # 异步任务，需要轮询
-                    poll_url = f"{self.base_url}/tts/v1/task/{result['task_id']}"
-                    final_result = self._poll_task_status(result['task_id'], poll_url)
-                    
-                    # 下载音频文件
-                    audio_url = final_result.get('audio_url')
-                    if audio_url and self._download_file(audio_url, output_path):
-                        self.logger.info(f"TTS生成成功 | 任务: {task_id} | 文件: {output_path}")
-                        db_manager.log_api_call('doubao', 'tts_synthesize', 'success', duration)
-                        return True
-                    else:
-                        raise Exception("下载音频文件失败")
-                else:
+                if result.get('code') == 3000:
                     # 同步任务，直接返回音频数据
-                    audio_data = result.get('audio_data')
-                    if audio_data:
-                        import base64
-                        with open(output_path, 'wb') as f:
-                            f.write(base64.b64decode(audio_data))
-                        self.logger.info(f"TTS生成成功 | 任务: {task_id} | 文件: {output_path}")
-                        db_manager.log_api_call('doubao', 'tts_synthesize', 'success', duration)
-                        return True
-                    else:
-                        raise Exception("未获取到音频数据")
+                    audio_data = result.get('data')
+                    import base64
+                    with open(output_path, 'wb') as f:
+                        f.write(base64.b64decode(audio_data))
+                    self.logger.info(f"音频文件解码成功 | 任务: {task_id} | 文件: {output_path}")
+                    db_manager.log_api_call('doubao', 'tts_synthesize', 'success', duration)
+                    return True
+                else:
+                    error_msg = f"TTS API调用失败: {result.get('code')} - {result.get('message')}"
+                    db_manager.log_api_call('doubao', 'tts_synthesize', 'error', duration, 
+                                        error_message=error_msg)
+                    raise Exception(error_msg)
             else:
                 error_msg = f"TTS API调用失败: {response.status_code} - {response.text}"
                 db_manager.log_api_call('doubao', 'tts_synthesize', 'error', duration, 
-                                      error_message=error_msg)
+                                        error_message=error_msg)
                 raise Exception(error_msg)
                     
         except Exception as e:
@@ -167,14 +183,13 @@ class TTSService:
             self.logger.error(f"下载文件失败: {str(e)}")
             return False
     
-    def generate_scene_audio(self, scene_description: str, dialogue: str, 
+    def generate_scene_audio(self, scene_content: str, 
                            task_id: str, scene_number: int) -> Optional[str]:
         """
         为场景生成音频文件
         
         Args:
-            scene_description: 场景描述
-            dialogue: 对话文本
+            scene_content: 场景描述
             task_id: 任务ID
             scene_number: 场景编号
             
@@ -182,12 +197,15 @@ class TTSService:
             音频文件路径
         """
         try:
-            # 构建音频文本（场景描述 + 对话）
-            audio_text = f"{scene_description}。{dialogue}"
+            # 构建音频文本
+            audio_text = f"{scene_content}"
             
             # 生成输出路径
             output_dir = config.get_path('temp_dir') / task_id / 'audio'
             output_path = output_dir / f"scene_{scene_number:02d}.mp3"
+
+            # 确保输出目录存在
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             
             # 生成语音
             if self.generate_speech(audio_text, str(output_path), task_id):
