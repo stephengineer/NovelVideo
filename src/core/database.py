@@ -85,13 +85,14 @@ class DatabaseManager:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS api_calls (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id TEXT NOT NULL,
                     service TEXT NOT NULL,
                     endpoint TEXT NOT NULL,
                     status TEXT NOT NULL,
                     duration REAL,
+                    error_message TEXT,
                     request_data TEXT,
                     response_data TEXT,
-                    error_message TEXT,
                     usage_info TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -261,22 +262,22 @@ class DatabaseManager:
             self.logger.error(f"添加文件记录失败: {task_id}, 错误: {str(e)}")
             return False
     
-    def log_api_call(self, service: str, endpoint: str, status: str, 
-                    duration: float, request_data: Dict = None, 
-                    response_data: Dict = None, error_message: str = None,
+    def log_api_call(self, task_id: str, service: str, endpoint: str, status: str, 
+                    duration: float, error_message: str = None, request_data: str = None, 
+                    response_data: str = None,
                     usage_info: Dict = None) -> bool:
         """记录API调用"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    INSERT INTO api_calls (service, endpoint, status, duration, 
-                                         request_data, response_data, error_message, usage_info)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (service, endpoint, status, duration,
+                    INSERT INTO api_calls (task_id, service, endpoint, status, duration, 
+                                         error_message, request_data, response_data, usage_info)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (task_id, service, endpoint, status, duration,
+                     error_message,
                      json.dumps(request_data) if request_data else None,
                      json.dumps(response_data) if response_data else None,
-                     error_message,
                      json.dumps(usage_info) if usage_info else None))
                 conn.commit()
                 return True
@@ -285,7 +286,7 @@ class DatabaseManager:
             return False
 
 
-    def get_api_calls(self, service: str = None, status: str = None, limit: int = 100) -> List[Dict]:
+    def get_api_calls(self, task_id: str = None, service: str = None, status: str = None, limit: int = 100) -> List[Dict]:
         """获取API调用记录"""
         try:
             with sqlite3.connect(self.db_path) as conn:
