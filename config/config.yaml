@@ -75,9 +75,13 @@ image_gen:
 
 # 视频生成配置
 video_gen:
-  duration: 10
-  transition: "fade"
-  effects: ["zoom", "pan"]
+  model: "doubao-seedance-1-0-pro-250528"
+  callback_url: ""
+  resolution: "480p"
+  ratio: "9:16"
+  duration: 5
+  watermark: False
+  seed: 27
 
 # 视频处理配置
 video:

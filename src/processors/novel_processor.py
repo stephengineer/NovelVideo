@@ -158,16 +158,20 @@ class NovelProcessor:
                 )
                 
                 # 生成图像
-                image_path = self.image_gen_service.generate_scene_image(
-                    scene_content, task_id, scene_number, seed
-                )
-                
+                image_path = ""
+                # image_path = self.image_gen_service.generate_scene_image(
+                #     scene_content, task_id, scene_number, seed
+                # )
+
                 # 生成视频
+                video_prompt = ""
+                if image_path == "":
+                    video_prompt = scene_content
                 video_path = self.video_gen_service.generate_scene_video(
-                    image_path, task_id, scene_number, scene.get('duration', 15)
+                    video_prompt, image_path, task_id, scene_number, seed
                 )
                 
-                if audio_path and image_path and video_path:
+                if audio_path and video_path:
                     scene_assets[scene_number] = {
                         'audio_path': audio_path,
                         'image_path': image_path,
