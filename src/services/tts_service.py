@@ -117,17 +117,17 @@ class TTSService:
                     with open(output_path, 'wb') as f:
                         f.write(base64.b64decode(audio_data))
                     self.logger.info(f"音频文件解码成功 | 任务: {task_id} | 文件: {output_path}")
-                    db_manager.log_api_call('doubao', 'tts_synthesize', 'success', duration)
+                    db_manager.log_api_call(task_id, 'doubao', 'tts_synthesize', 'success', duration, request_data=payload, response_data=result)
                     return True
                 else:
                     error_msg = f"TTS API调用失败: {result.get('code')} - {result.get('message')}"
-                    db_manager.log_api_call('doubao', 'tts_synthesize', 'error', duration, 
-                                        error_message=error_msg)
+                    db_manager.log_api_call(task_id, 'doubao', 'tts_synthesize', 'error', duration,
+                                        error_msg, payload, result)
                     raise Exception(error_msg)
             else:
                 error_msg = f"TTS API调用失败: {response.status_code} - {response.text}"
-                db_manager.log_api_call('doubao', 'tts_synthesize', 'error', duration, 
-                                        error_message=error_msg)
+                db_manager.log_api_call(task_id, 'doubao', 'tts_synthesize', 'error', duration, 
+                                        error_msg, payload, response)
                 raise Exception(error_msg)
                     
         except Exception as e:
