@@ -14,11 +14,14 @@ class DoubaoService:
     """豆包大模型API服务类"""
     
     def __init__(self):
-        self.api_key = config.get('doubao.api_key')
         self.base_url = config.get('doubao.base_url')
+        self.api_key = config.get('doubao.api_key')
         self.model = config.get('doubao.model')
+        self.thinking = config.get('doubao.thinking')
         self.max_tokens = config.get('doubao.max_tokens')
+        self.frequency_penalty = config.get('doubao.frequency_penalty')
         self.temperature = config.get('doubao.temperature')
+        self.top_p = config.get('doubao.top_p')
         self.logger = get_logger('doubao_service')
         
         if not self.api_key:
@@ -57,11 +60,12 @@ class DoubaoService:
             self.logger.error(f"小说分析失败 | 任务: {task_id} | 错误: {str(e)}")
             # 记录分析失败的API调用
             db_manager.log_api_call(
+                task_id,
                 'doubao', 
                 'analyze_novel', 
-                'error', 
+                'error',
                 duration,
-                error_message=str(e)
+                str(e)
             )
             raise
     
@@ -83,7 +87,8 @@ class DoubaoService:
             'Content-Type': 'application/json'
         }
         
-        payload = json.dumps({
+        # 构建请求数据
+        payload = {
             'model': self.model,
             'messages': [
                 {
@@ -96,8 +101,11 @@ class DoubaoService:
                 }
             ],
             "thinking": {
-                "type": "disabled"
+                "type": self.thinking
             },
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+            "top_p": self.top_p,
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {
@@ -150,7 +158,7 @@ class DoubaoService:
                     "strict": True
                 }
             }
-        })
+        }
         
         start_time = time.time()
         
@@ -158,7 +166,7 @@ class DoubaoService:
             response = requests.post(
                 f"{self.base_url}/api/v3/chat/completions",
                 headers=headers,
-                data=payload
+                data=json.dumps(payload)
             )
             
             duration = time.time() - start_time
@@ -177,11 +185,12 @@ class DoubaoService:
                 
                 # 记录成功的API调用，包含请求、响应数据和token使用情况
                 db_manager.log_api_call(
+                    task_id,
                     'doubao', 
                     'chat_completions', 
                     'success', 
                     duration,
-                    request_data=json.loads(payload),
+                    request_data=payload,
                     response_data=result,
                     usage_info=usage_info
                 )
@@ -190,12 +199,13 @@ class DoubaoService:
                 error_msg = f"API调用失败: {response.status_code} - {response.text}"
                 # 记录失败的API调用，包含请求数据
                 db_manager.log_api_call(
+                    task_id,
                     'doubao', 
                     'chat_completions', 
                     'error', 
                     duration,
-                    request_data=json.loads(payload),
-                    error_message=error_msg
+                    error_msg,
+                    payload
                 )
                 raise Exception(error_msg)
                 
@@ -203,12 +213,13 @@ class DoubaoService:
             duration = time.time() - start_time
             # 记录网络异常的API调用，包含请求数据
             db_manager.log_api_call(
+                task_id,
                 'doubao', 
                 'chat_completions', 
                 'error', 
                 duration,
-                request_data=json.loads(payload),
-                error_message=str(e)
+                str(e),
+                payload
             )
             raise
     
@@ -266,10 +277,11 @@ class DoubaoService:
             self.logger.error(f"章节摘要生成失败 | 任务: {task_id} | 错误: {str(e)}")
             # 记录摘要生成失败的API调用
             db_manager.log_api_call(
+                task_id,
                 'doubao', 
                 'generate_summary', 
                 'error', 
                 duration,
-                error_message=str(e)
+                str(e)
             )
             raise 

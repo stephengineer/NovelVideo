@@ -31,12 +31,15 @@ logging:
 
 # 豆包统一配置
 doubao:
-  api_key: "${DOUBAO_API_KEY}"
   base_url: "https://ark.cn-beijing.volces.com"
+  api_key: "${DOUBAO_API_KEY}"
   model: "doubao-seed-1.6-flash-250615"
-  max_tokens: 4000
-  temperature: 0.7
-  app_id: "${DOUBAO_APP_ID}"
+  thinking: "disabled"
+  max_tokens: 4096
+  frequency_penalty: 0
+  presence_penalty: 0
+  temperature: 1.0
+  top_p: 0.7
 
 # 视频处理配置
 video:
@@ -56,10 +59,26 @@ audio:
 
 # 文本转语音配置
 tts:
-  voice: "BV001_streaming"
-  speed: 1.0
-  volume: 1.0
-  pitch: 1.0
+  base_url: "https://openspeech.bytedance.com"
+  api_token: "${TTS_TOKEN}"
+  id: "${TTS_APP_ID}"
+  token: "token"
+  cluster: "volcano_tts"
+  voice_type: "zh_male_baqiqingshu_mars_bigtts"
+  emotion: ""
+  enable_emotion: False
+  emotion_scale: 4.0
+  encoding: "mp3"
+  speed_ratio: 1.0
+  rate: 24000
+  bitrate: 160
+  explicit_language: "zh"
+  context_language: ""
+  loudness_ratio: 1.0
+  with_timestamp: 1
+  operation: "query"
+  disable_markdown_filter: True
+  disable_emoji_filter: True
 
 # 图像生成配置
 image_gen:

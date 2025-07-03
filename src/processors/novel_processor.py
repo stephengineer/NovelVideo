@@ -144,19 +144,18 @@ class NovelProcessor:
             for scene in scenes:
                 scene_number = scene['scene_number']
                 scene_description = scene['scene_description']
-                dialogue = scene['dialogue']
-                scene_type = scene.get('scene_type', '')
+                scene_content = scene['scene_content']
                 
                 self.logger.info(f"生成场景素材 | 任务: {task_id} | 场景: {scene_number}")
                 
                 # 生成TTS音频
                 audio_path = self.tts_service.generate_scene_audio(
-                    scene_description, dialogue, task_id, scene_number
+                    scene_content, task_id, scene_number
                 )
                 
                 # 生成图像
                 image_path = self.image_gen_service.generate_scene_image(
-                    scene_description, task_id, scene_number, scene_type
+                    scene_description, task_id, scene_number
                 )
                 
                 # 生成视频
