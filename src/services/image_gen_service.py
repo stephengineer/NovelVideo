@@ -16,16 +16,20 @@ class ImageGenService:
     """豆包文生图服务类"""
     
     def __init__(self):
-        self.api_key = config.get('doubao.api_key')
         self.base_url = config.get('doubao.base_url')
+        self.api_key = config.get('doubao.api_key')
+        self.model = config.get('image_gen.model')
+        self.response_format = config.get('image_gen.response_format')
+        self.size = config.get('image_gen.size')
+        self.seed = config.get('image_gen.seed')
+        self.guidance_scale = config.get('image_gen.guidance_scale')
+        self.watermark = config.get('image_gen.watermark')
         self.logger = get_logger('image_gen_service')
         
         if not self.api_key:
             raise ValueError("豆包API密钥未配置")
     
-    def generate_image(self, prompt: str, output_path: str, task_id: str,
-                      width: int = None, height: int = None, 
-                      style: str = None, quality: str = None) -> bool:
+    def generate_image(self, prompt: str, output_path: str, task_id: str, seed: int) -> bool:
         """
         生成图像
         
@@ -33,33 +37,24 @@ class ImageGenService:
             prompt: 图像描述提示词
             output_path: 输出图像文件路径
             task_id: 任务ID
-            width: 图像宽度
-            height: 图像高度
-            style: 图像风格
-            quality: 图像质量
             
         Returns:
             是否成功
         """
         try:
-            # 使用配置的默认值
-            width = width or config.get('image_gen.width', 1920)
-            height = height or config.get('image_gen.height', 1080)
-            style = style or config.get('image_gen.style', 'realistic')
-            quality = quality or config.get('image_gen.quality', 'high')
-            
-            # 确保输出目录存在
-            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            # 验证seed取值范围取值范围为 [0, 2147483647]
+            if seed >= 0 and seed <= 2147483647:
+                self.seed = seed
             
             # 构建请求数据
-            request_data = {
-                'model': 'doubao-seedream-3.0-t2i',
+            payload = {
+                'model': self.model,
                 'prompt': prompt,
-                'width': width,
-                'height': height,
-                'style': style,
-                'quality': quality,
-                'format': 'png'
+                'response_format': self.response_format,
+                'size': self.size,
+                'seed': self.seed,
+                'guidance_scale': self.guidance_scale,
+                'watermark': self.watermark
             }
             
             # 调用豆包文生图API
@@ -70,10 +65,9 @@ class ImageGenService:
             
             start_time = time.time()
             response = requests.post(
-                f"{self.base_url}/v1/images/generations",
+                f"{self.base_url}/api/v3/images/generations",
                 headers=headers,
-                json=request_data,
-                timeout=60
+                data=json.dumps(payload),
             )
             duration = time.time() - start_time
             
@@ -81,35 +75,35 @@ class ImageGenService:
                 result = response.json()
                 
                 # 检查任务状态
-                if 'task_id' in result:
-                    # 异步任务，需要轮询
-                    poll_url = f"{self.base_url}/v1/images/tasks/{result['task_id']}"
-                    final_result = self._poll_task_status(result['task_id'], poll_url)
-                    
-                    # 下载图像文件
-                    image_url = final_result.get('image_url')
-                    if image_url and self._download_file(image_url, output_path):
-                        self.logger.info(f"图像生成成功 | 任务: {task_id} | 文件: {output_path}")
-                        db_manager.log_api_call('doubao', 'image_generate', 'success', duration)
-                        return True
-                    else:
-                        raise Exception("下载图像文件失败")
+                if 'error' not in result:
+                    if self.response_format == 'url':
+                        # 下载图像文件
+                        image_url = result.get('data')[0].get('url')
+                        if image_url and self._download_file(image_url, output_path):
+                            self.logger.info(f"图像生成下载成功 | 任务: {task_id} | 文件: {output_path}")
+                            db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'success', duration, request_data=payload, response_data=result)
+                            return True
+                        else:
+                            raise Exception("下载图像文件失败")
+                    elif self.response_format == 'b64_json':
+                        # 解析base64编码的图像数据
+                        image_data = result.get('data')[0].get('b64_json')
+                        if image_data:
+                            import base64
+                            with open(output_path, 'wb') as f:
+                                f.write(base64.b64decode(image_data))
+                            self.logger.info(f"图像生成解析成功 | 任务: {task_id} | 文件: {output_path}")
+                            db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'success', duration, request_data=payload, response_data=result)
+                            return True
+                        else:
+                            raise Exception("解析图像数据失败")
                 else:
-                    # 同步任务，直接返回图像数据
-                    image_data = result.get('image_data')
-                    if image_data:
-                        import base64
-                        with open(output_path, 'wb') as f:
-                            f.write(base64.b64decode(image_data))
-                        self.logger.info(f"图像生成成功 | 任务: {task_id} | 文件: {output_path}")
-                        db_manager.log_api_call('doubao', 'image_generate', 'success', duration)
-                        return True
-                    else:
-                        raise Exception("未获取到图像数据")
+                    error_msg = f"图像生成失败: {result.get('error').get('code')} - {result.get('error').get('message')}"
+                    db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'error', duration, error_msg, payload, result)
+                    raise Exception(error_msg)
             else:
                 error_msg = f"文生图API调用失败: {response.status_code} - {response.text}"
-                db_manager.log_api_call('doubao', 'image_generate', 'error', duration, 
-                                      error_message=error_msg)
+                db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'error', duration, error_msg, payload, response)
                 raise Exception(error_msg)
                     
         except Exception as e:
@@ -165,13 +159,13 @@ class ImageGenService:
             self.logger.error(f"下载文件失败: {str(e)}")
             return False
     
-    def generate_scene_image(self, scene_description: str, task_id: str, 
-                           scene_number: int, scene_type: str = None) -> Optional[str]:
+    def generate_scene_image(self, scene_content: str, task_id: str, 
+                           scene_number: int, seed: int, scene_type: str = None) -> Optional[str]:
         """
         为场景生成图像
         
         Args:
-            scene_description: 场景描述
+            scene_content: 场景内容
             task_id: 任务ID
             scene_number: 场景编号
             scene_type: 场景类型（室内/室外/特写等）
@@ -181,14 +175,17 @@ class ImageGenService:
         """
         try:
             # 根据场景类型优化提示词
-            enhanced_prompt = self._enhance_prompt(scene_description, scene_type)
+            enhanced_prompt = self._enhance_prompt(scene_content, scene_type)
             
             # 生成输出路径
             output_dir = config.get_path('temp_dir') / task_id / 'images'
             output_path = output_dir / f"scene_{scene_number:02d}.png"
+
+            # 确保输出目录存在
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             
             # 生成图像
-            if self.generate_image(enhanced_prompt, str(output_path), task_id):
+            if self.generate_image(enhanced_prompt, str(output_path), task_id, seed):
                 return str(output_path)
             else:
                 return None
@@ -197,10 +194,10 @@ class ImageGenService:
             self.logger.error(f"场景图像生成失败 | 任务: {task_id} | 场景: {scene_number} | 错误: {str(e)}")
             return None
     
-    def _enhance_prompt(self, description: str, scene_type: str = None) -> str:
+    def _enhance_prompt(self, scene_content: str, scene_type: str = None) -> str:
         """增强图像生成提示词"""
         # 基础提示词
-        prompt = f"高质量摄影，{description}"
+        prompt = f"{scene_content}"
         
         # 根据场景类型添加特定描述
         if scene_type:
@@ -214,7 +211,7 @@ class ImageGenService:
                 prompt += "，远景镜头，广阔视野"
         
         # 添加通用质量提升词
-        prompt += "，8K超高清，电影级画质，专业摄影"
+        # prompt += "，8K超高清，电影级画质，专业摄影"
         
         return prompt
     

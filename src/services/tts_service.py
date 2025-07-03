@@ -111,16 +111,16 @@ class TTSService:
                 
                 # 检查任务状态
                 if result.get('code') == 3000:
-                    # 同步任务，直接返回音频数据
+                    # 解析音频数据
                     audio_data = result.get('data')
                     import base64
                     with open(output_path, 'wb') as f:
                         f.write(base64.b64decode(audio_data))
-                    self.logger.info(f"音频文件解码成功 | 任务: {task_id} | 文件: {output_path}")
+                    self.logger.info(f"TTS音频生成解析成功 | 任务: {task_id} | 文件: {output_path}")
                     db_manager.log_api_call(task_id, 'doubao', 'tts_synthesize', 'success', duration, request_data=payload, response_data=result)
                     return True
                 else:
-                    error_msg = f"TTS API调用失败: {result.get('code')} - {result.get('message')}"
+                    error_msg = f"TTS API调用错误: {result.get('code')} - {result.get('message')}"
                     db_manager.log_api_call(task_id, 'doubao', 'tts_synthesize', 'error', duration,
                                         error_msg, payload, result)
                     raise Exception(error_msg)
@@ -183,13 +183,13 @@ class TTSService:
             self.logger.error(f"下载文件失败: {str(e)}")
             return False
     
-    def generate_scene_audio(self, scene_content: str, 
+    def generate_scene_audio(self, scene_description: str, 
                            task_id: str, scene_number: int) -> Optional[str]:
         """
         为场景生成音频文件
         
         Args:
-            scene_content: 场景描述
+            scene_description: 场景描述
             task_id: 任务ID
             scene_number: 场景编号
             
@@ -198,7 +198,7 @@ class TTSService:
         """
         try:
             # 构建音频文本
-            audio_text = f"{scene_content}"
+            audio_text = f"{scene_description}"
             
             # 生成输出路径
             output_dir = config.get_path('temp_dir') / task_id / 'audio'

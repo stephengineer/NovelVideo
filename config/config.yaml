@@ -41,22 +41,6 @@ doubao:
   temperature: 1.0
   top_p: 0.7
 
-# 视频处理配置
-video:
-  fps: 30
-  resolution: [1920, 1080]
-  codec: "libx264"
-  audio_codec: "aac"
-  bitrate: "5000k"
-  audio_bitrate: "192k"
-  preset: "medium"
-
-# 音频配置
-audio:
-  sample_rate: 44100
-  channels: 2
-  format: "mp3"
-
 # 文本转语音配置
 tts:
   base_url: "https://openspeech.bytedance.com"
@@ -82,16 +66,34 @@ tts:
 
 # 图像生成配置
 image_gen:
-  width: 1920
-  height: 1080
-  style: "realistic"
-  quality: "high"
+  model: "doubao-seedream-3-0-t2i-250415"
+  response_format: "b64_json"
+  size: "720x1280"
+  seed: 27
+  guidance_scale: 9
+  watermark: False
 
 # 视频生成配置
 video_gen:
   duration: 10
   transition: "fade"
   effects: ["zoom", "pan"]
+
+# 视频处理配置
+video:
+  fps: 30
+  resolution: [1920, 1080]
+  codec: "libx264"
+  audio_codec: "aac"
+  bitrate: "5000k"
+  audio_bitrate: "192k"
+  preset: "medium"
+
+# 音频配置
+audio:
+  sample_rate: 44100
+  channels: 2
+  format: "mp3"
 
 # 任务调度配置
 scheduler:

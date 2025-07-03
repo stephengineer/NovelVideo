@@ -140,22 +140,26 @@ class NovelProcessor:
         try:
             scenes = storyboard.get('scenes', [])
             scene_assets = {}
-            
+
+            # 随机生成一个seed
+            import random
+            seed = random.randint(0, 2147483647)
+
             for scene in scenes:
                 scene_number = scene['scene_number']
-                scene_description = scene['scene_description']
                 scene_content = scene['scene_content']
+                scene_description = scene['scene_description']
                 
                 self.logger.info(f"生成场景素材 | 任务: {task_id} | 场景: {scene_number}")
                 
                 # 生成TTS音频
                 audio_path = self.tts_service.generate_scene_audio(
-                    scene_content, task_id, scene_number
+                    scene_description, task_id, scene_number
                 )
                 
                 # 生成图像
                 image_path = self.image_gen_service.generate_scene_image(
-                    scene_description, task_id, scene_number
+                    scene_content, task_id, scene_number, seed
                 )
                 
                 # 生成视频
@@ -167,8 +171,7 @@ class NovelProcessor:
                     scene_assets[scene_number] = {
                         'audio_path': audio_path,
                         'image_path': image_path,
-                        'video_path': video_path,
-                        'dialogue': dialogue
+                        'video_path': video_path
                     }
                     
                     # 更新数据库中的分镜脚本
