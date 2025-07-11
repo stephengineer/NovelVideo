@@ -75,7 +75,9 @@ image_gen:
 
 # 视频生成配置
 video_gen:
-  model: "doubao-seedance-1-0-pro-250528"
+  model_pro: "doubao-seedance-1-0-pro-250528"
+  model_t2v: "doubao-seedance-1-0-lite-t2v-250428"
+  model_i2v: "doubao-seedance-1-0-lite-i2v-250428"
   callback_url: ""
   resolution: "480p"
   ratio: "9:16"
