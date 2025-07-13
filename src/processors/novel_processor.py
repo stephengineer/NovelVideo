@@ -27,6 +27,13 @@ class NovelProcessor:
         self.image_gen_service = ImageGenService()
         self.video_gen_service = VideoGenService()
         self.video_processor = VideoProcessor()
+        # 为整个小说选择一致的字体配置
+        from config.font_configs import get_random_font_config
+        # TODO
+        # self.font_config = get_random_font_config()
+        from config.font_configs import get_font_config_by_name
+        self.font_config = get_font_config_by_name("yellow_black")
+        self.logger.info(f"为小说选择字体配置: {self.font_config.name}")
     
     def process_novel(self, task_id: str, input_file: str, config_data: Dict = None) -> bool:
         """
@@ -87,7 +94,7 @@ class NovelProcessor:
             db_manager.update_task_status(task_id, 'running', progress=0.9)
             
             # 6. 清理临时文件
-            self._cleanup_temp_files(task_id)
+            # self._cleanup_temp_files(task_id)
             
             # 7. 更新任务状态
             db_manager.update_task_status(task_id, 'completed', 
@@ -153,27 +160,31 @@ class NovelProcessor:
                 self.logger.info(f"生成场景素材 | 任务: {task_id} | 场景: {scene_number}")
                 
                 # 生成TTS音频
-                audio_path = self.tts_service.generate_scene_audio(
+                audio_path, audio_words, audio_duration = self.tts_service.generate_scene_audio(
                     scene_description, task_id, scene_number
                 )
                 
-                # 生成图像
                 image_path = ""
-                # image_path = self.image_gen_service.generate_scene_image(
-                #     scene_content, task_id, scene_number, seed
-                # )
-
-                # 生成视频
-                video_prompt = ""
-                if image_path == "":
+                video_path = ""
+                # 根据场景编号决定生成策略
+                if scene_number < 3:
+                    # 文生视频：前2个场景使用文本生成视频
                     video_prompt = scene_content
-                video_path = self.video_gen_service.generate_scene_video(
-                    video_prompt, image_path, task_id, scene_number, seed
-                )
-                
-                if audio_path and video_path:
+                    video_path = self.video_gen_service.generate_video_from_text(
+                        video_prompt, task_id, scene_number, seed
+                    )
+                else:
+                    # 图片运镜视频：后续场景先生成图片，再生成运镜视频
+                    image_path = self.image_gen_service.generate_scene_image(
+                        scene_content, task_id, scene_number, seed
+                    )
+
+                if audio_path and (image_path or video_path):
                     scene_assets[scene_number] = {
+                        "scene_description": scene_description,
                         'audio_path': audio_path,
+                        'audio_words': audio_words,
+                        'audio_duration': audio_duration,
                         'image_path': image_path,
                         'video_path': video_path
                     }
@@ -183,6 +194,8 @@ class NovelProcessor:
                     db_manager.update_storyboard_assets(
                         storyboard_id,
                         tts_audio_path=audio_path,
+                        audio_words=audio_words,
+                        audio_duration=audio_duration,
                         image_path=image_path,
                         video_path=video_path
                     )
@@ -207,15 +220,22 @@ class NovelProcessor:
                 # 生成输出路径
                 output_dir = config.get_path('temp_dir') / task_id / 'final_scenes'
                 output_path = output_dir / f"scene_{scene_number:02d}_final.mp4"
-                
-                # 创建场景视频
+
+                # 确保输出目录存在
+                Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+                # 创建场景视频，使用一致的字体配置
                 success = self.video_processor.create_scene_video(
+                    image_path=assets['image_path'],
                     video_path=assets['video_path'],
                     audio_path=assets['audio_path'],
-                    text_content=assets['dialogue'],
+                    audio_duration=assets['audio_duration'],
+                    audio_words=assets['audio_words'],
+                    text_content=assets['scene_description'],
                     output_path=str(output_path),
                     task_id=task_id,
-                    scene_number=scene_number
+                    scene_number=scene_number,
+                    font_config=self.font_config  # 传递一致的字体配置
                 )
                 
                 if success:
@@ -239,6 +259,9 @@ class NovelProcessor:
             # 生成输出路径
             output_dir = config.get_path('output_dir')
             output_path = output_dir / f"{task_id}_final.mp4"
+
+            # 确保输出目录存在
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             
             # 合并场景视频
             success = self.video_processor.merge_scene_videos(
