@@ -141,7 +141,7 @@ class TaskScheduler:
                     self._check_timeout_tasks()
                     
                     # 检查失败任务
-                    self._check_failed_tasks()
+                    # self._check_failed_tasks()
                     
                     # 清理完成的任务
                     self._cleanup_completed_tasks()
