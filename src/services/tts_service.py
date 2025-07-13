@@ -41,7 +41,7 @@ class TTSService:
         if not self.api_token or not self.id:
             raise ValueError("火山引擎TTS配置未配置")
     
-    def generate_speech(self, text: str, output_path: str, task_id: str, voice_type: str = None, emotion: str = None) -> bool:
+    def generate_speech(self, text: str, output_path: str, task_id: str, voice_type: str = None, emotion: str = None) -> tuple[bool, Optional[str], Optional[float]]:
         """
         生成语音文件
         
@@ -55,7 +55,7 @@ class TTSService:
             pitch: 音调
             
         Returns:
-            是否成功
+            (是否成功, audio_words, audio_duration)
         """
             
         try:
@@ -113,12 +113,14 @@ class TTSService:
                 if result.get('code') == 3000:
                     # 解析音频数据
                     audio_data = result.get('data')
+                    audio_words = result.get('addition').get('frontend')
+                    audio_duration = float(result.get('addition').get('duration'))
                     import base64
                     with open(output_path, 'wb') as f:
                         f.write(base64.b64decode(audio_data))
                     self.logger.info(f"TTS音频生成解析成功 | 任务: {task_id} | 文件: {output_path}")
                     db_manager.log_api_call(task_id, 'doubao', 'tts_synthesize', 'success', duration, request_data=payload, response_data=result)
-                    return True
+                    return True, audio_words, audio_duration
                 else:
                     error_msg = f"TTS API调用错误: {result.get('code')} - {result.get('message')}"
                     db_manager.log_api_call(task_id, 'doubao', 'tts_synthesize', 'error', duration,
@@ -132,7 +134,7 @@ class TTSService:
                     
         except Exception as e:
             self.logger.error(f"TTS生成失败 | 任务: {task_id} | 错误: {str(e)}")
-            return False
+            return False, None, None
     
     def _poll_task_status(self, task_id: str, poll_url: str) -> Dict[str, Any]:
         """轮询任务状态"""
@@ -184,7 +186,7 @@ class TTSService:
             return False
     
     def generate_scene_audio(self, scene_description: str, 
-                           task_id: str, scene_number: int) -> Optional[str]:
+                           task_id: str, scene_number: int) -> tuple[Optional[str], Optional[str], Optional[float]]:
         """
         为场景生成音频文件
         
@@ -194,7 +196,7 @@ class TTSService:
             scene_number: 场景编号
             
         Returns:
-            音频文件路径
+            (音频文件路径, audio_words, audio_duration)
         """
         try:
             # 构建音频文本
@@ -208,14 +210,15 @@ class TTSService:
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             
             # 生成语音
-            if self.generate_speech(audio_text, str(output_path), task_id):
-                return str(output_path)
+            success, audio_words, audio_duration = self.generate_speech(audio_text, str(output_path), task_id)
+            if success:
+                return str(output_path), audio_words, audio_duration
             else:
-                return None
+                return None, None, None
                 
         except Exception as e:
             self.logger.error(f"场景音频生成失败 | 任务: {task_id} | 场景: {scene_number} | 错误: {str(e)}")
-            return None
+            return None, None, None
     
     def get_available_voices(self) -> Dict[str, Any]:
         """获取可用的语音列表"""
