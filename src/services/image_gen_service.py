@@ -26,6 +26,10 @@ class ImageGenService:
         self.watermark = config.get('image_gen.watermark')
         self.logger = get_logger('image_gen_service')
         
+        # 初始化豆包服务用于prompt改写
+        from .doubao_service import DoubaoService
+        self.doubao_service = DoubaoService()
+        
         if not self.api_key:
             raise ValueError("豆包API密钥未配置")
     
@@ -58,53 +62,65 @@ class ImageGenService:
             }
             
             # 调用豆包文生图API
-            headers = {
-                'Authorization': f'Bearer {self.api_key}',
-                'Content-Type': 'application/json'
-            }
-            
-            start_time = time.time()
-            response = requests.post(
-                f"{self.base_url}/api/v3/images/generations",
-                headers=headers,
-                data=json.dumps(payload),
-            )
-            duration = time.time() - start_time
+            response, duration = self._call_image_gen_api(payload)
             
             if response.status_code == 200:
                 result = response.json()
                 
                 # 检查任务状态
                 if 'error' not in result:
-                    if self.response_format == 'url':
-                        # 下载图像文件
-                        image_url = result.get('data')[0].get('url')
-                        if image_url and self._download_file(image_url, output_path):
-                            self.logger.info(f"图像生成下载成功 | 任务: {task_id} | 文件: {output_path}")
-                            db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'success', duration, request_data=payload, response_data=result)
-                            return True
-                        else:
-                            raise Exception("下载图像文件失败")
-                    elif self.response_format == 'b64_json':
-                        # 解析base64编码的图像数据
-                        image_data = result.get('data')[0].get('b64_json')
-                        if image_data:
-                            import base64
-                            with open(output_path, 'wb') as f:
-                                f.write(base64.b64decode(image_data))
-                            self.logger.info(f"图像生成解析成功 | 任务: {task_id} | 文件: {output_path}")
-                            db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'success', duration, request_data=payload, response_data=result)
-                            return True
-                        else:
-                            raise Exception("解析图像数据失败")
+                    return self._process_successful_response(result, output_path, task_id, duration, payload)
                 else:
-                    error_msg = f"图像生成失败: {result.get('error').get('code')} - {result.get('error').get('message')}"
-                    db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'error', duration, error_msg, payload, result)
-                    raise Exception(error_msg)
+                    if "Sensitive" in response.get('error', {}).get('code', ''):
+                        # 重试3次重新改写prompt，并重新生成图像
+                        self.logger.warning(f"检测到敏感内容，开始重试 | 任务: {task_id} | 原始prompt: {prompt}")
+                        
+                        for retry_count in range(3):
+                            try:
+                                # 改写prompt
+                                new_prompt = self.doubao_service.rewrite_prompt(prompt, retry_count + 1, task_id)
+                                self.logger.info(f"重试第{retry_count + 1}次 | 改写后prompt: {new_prompt}")
+                                
+                                # 更新payload中的prompt
+                                payload['prompt'] = new_prompt
+                                
+                                # 重新调用API
+                                retry_response, _ = self._call_image_gen_api(payload)
+                                
+                                if retry_response.status_code == 200:
+                                    retry_result = retry_response.json()
+                                    
+                                    if 'error' not in retry_result:
+                                        # 重试成功，处理结果
+                                        success = self._process_successful_response(retry_result, output_path, task_id, duration, payload, retry_count + 1)
+                                        if success:
+                                            return True
+                                    elif "Sensitive" not in retry_result.get('error', {}).get('code', ''):
+                                        # 其他错误，记录并继续重试
+                                        self.logger.warning(f"重试第{retry_count + 1}次遇到其他错误: {retry_result.get('error')}")
+                                        continue
+                                    else:
+                                        # 仍然是敏感内容错误，继续重试
+                                        self.logger.warning(f"重试第{retry_count + 1}次仍然检测到敏感内容")
+                                        continue
+                                else:
+                                    self._handle_api_error(retry_response, task_id, duration, payload, retry_count + 1)
+                                    continue
+                                    
+                            except Exception as retry_e:
+                                self.logger.warning(f"重试第{retry_count + 1}次异常: {str(retry_e)}")
+                                continue
+                        
+                        # 所有重试都失败了
+                        error_msg = f"图像生成失败: 敏感内容重试3次后仍然失败"
+                        db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'error', duration, error_msg, payload, result)
+                        raise Exception(error_msg)
+                    else:
+                        error_msg = f"图像生成失败: {result.get('error').get('code')} - {result.get('error').get('message')}"
+                        db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'error', duration, error_msg, payload, result)
+                        raise Exception(error_msg)
             else:
-                error_msg = f"文生图API调用失败: {response.status_code} - {response.text}"
-                db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'error', duration, error_msg, payload, response)
-                raise Exception(error_msg)
+                self._handle_api_error(response, task_id, duration, payload)
                     
         except Exception as e:
             self.logger.error(f"图像生成失败 | 任务: {task_id} | 错误: {str(e)}")
@@ -214,6 +230,95 @@ class ImageGenService:
         # prompt += "，8K超高清，电影级画质，专业摄影"
         
         return prompt
+    
+    def _call_image_gen_api(self, payload: Dict[str, Any]) -> tuple[requests.Response, float]:
+        """
+        调用图像生成API
+        
+        Args:
+            payload: 请求数据
+            
+        Returns:
+            (响应对象, 耗时)
+        """
+        headers = {
+            'Authorization': f'Bearer {self.api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        start_time = time.time()
+        response = requests.post(
+            f"{self.base_url}/api/v3/images/generations",
+            headers=headers,
+            data=json.dumps(payload),
+        )
+        duration = time.time() - start_time
+        
+        return response, duration
+    
+    def _handle_api_error(self, response: requests.Response, task_id: str, duration: float, 
+                         payload: Dict[str, Any], retry_count: int = None) -> None:
+        """
+        处理API调用错误
+        
+        Args:
+            response: 响应对象
+            task_id: 任务ID
+            duration: 请求耗时
+            payload: 请求数据
+            retry_count: 重试次数（可选）
+        """
+        retry_info = f" | 重试次数: {retry_count}" if retry_count else ""
+        error_msg = f"文生图API调用失败: {response.status_code} - {response.text}{retry_info}"
+        self.logger.warning(error_msg)
+        db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'error', duration, error_msg, payload, response)
+    
+    def _process_successful_response(self, result: Dict[str, Any], output_path: str, task_id: str, 
+                                   duration: float, payload: Dict[str, Any], retry_count: int = None) -> bool:
+        """
+        处理成功的API响应
+        
+        Args:
+            result: API响应结果
+            output_path: 输出文件路径
+            task_id: 任务ID
+            duration: 请求耗时
+            payload: 请求数据
+            retry_count: 重试次数（可选）
+            
+        Returns:
+            是否成功
+        """
+        try:
+            if self.response_format == 'url':
+                # 下载图像文件
+                image_url = result.get('data')[0].get('url')
+                if image_url and self._download_file(image_url, output_path):
+                    retry_info = f" | 重试次数: {retry_count}" if retry_count else ""
+                    self.logger.info(f"图像生成下载成功 | 任务: {task_id} | 文件: {output_path}{retry_info}")
+                    db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'success', duration, request_data=payload, response_data=result)
+                    return True
+                else:
+                    raise Exception("下载图像文件失败")
+            elif self.response_format == 'b64_json':
+                # 解析base64编码的图像数据
+                image_data = result.get('data')[0].get('b64_json')
+                if image_data:
+                    import base64
+                    with open(output_path, 'wb') as f:
+                        f.write(base64.b64decode(image_data))
+                    retry_info = f" | 重试次数: {retry_count}" if retry_count else ""
+                    self.logger.info(f"图像生成解析成功 | 任务: {task_id} | 文件: {output_path}{retry_info}")
+                    db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'success', duration, request_data=payload, response_data=result)
+                    return True
+                else:
+                    raise Exception("解析图像数据失败")
+            else:
+                raise Exception(f"不支持的响应格式: {self.response_format}")
+        except Exception as e:
+            self.logger.error(f"处理API响应失败: {str(e)}")
+            return False
+    
     
     def get_available_styles(self) -> Dict[str, Any]:
         """获取可用的图像风格列表"""

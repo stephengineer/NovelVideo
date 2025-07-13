@@ -284,4 +284,256 @@ class DoubaoService:
                 duration,
                 str(e)
             )
-            raise 
+            raise
+    
+    def rewrite_prompt(self, original_prompt: str, retry_count: int, task_id: str = None) -> str:
+        """
+        使用AI模型改写敏感prompt，尝试避免敏感内容检测
+        
+        Args:
+            original_prompt: 原始prompt
+            retry_count: 重试次数（1-3）
+            task_id: 任务ID（可选，用于日志记录）
+            
+        Returns:
+            改写后的prompt
+        """
+        try:
+            # 根据重试次数构建不同的改写指令
+            if retry_count == 1:
+                instruction = f"""
+请将以下图像描述改写为适合图像生成的安全版本，避免敏感内容：
+原始描述：{original_prompt}
+
+要求：
+1. 保持场景的核心内容和氛围
+2. 将可能敏感的内容替换为更温和的表达
+3. 添加艺术风格修饰，使其适合全年龄段
+4. 保持描述的生动性和画面感
+
+请直接返回改写后的描述，不要包含其他解释。
+"""
+            elif retry_count == 2:
+                instruction = f"""
+请将以下图像描述进一步改写，使其更加温和和安全：
+原始描述：{original_prompt}
+
+要求：
+1. 简化描述，移除所有可能敏感的元素
+2. 强调温馨、和谐、正能量的氛围
+3. 使用更加温和的词汇和表达方式
+4. 确保完全适合全年龄段观看
+
+请直接返回改写后的描述，不要包含其他解释。
+"""
+            else:  # retry_count == 3
+                instruction = f"""
+请将以下图像描述完全重写为最安全的版本：
+原始描述：{original_prompt}
+
+要求：
+1. 提取场景的核心元素（人物、环境、动作等）
+2. 使用最安全、最温和的描述方式
+3. 强调温馨和谐的氛围
+4. 确保完全没有任何敏感内容
+5. 适合所有年龄段观看
+
+请直接返回改写后的描述，不要包含其他解释。
+"""
+            
+            # 调用AI模型进行改写
+            rewritten_prompt = self._call_rewrite_api(instruction, task_id)
+            
+            if rewritten_prompt:
+                self.logger.info(f"AI模型改写成功 | 重试次数: {retry_count} | 原始: {original_prompt} | 改写后: {rewritten_prompt}")
+                return rewritten_prompt
+            else:
+                # 如果AI模型调用失败，使用备用方案
+                return self._fallback_rewrite_prompt(original_prompt, retry_count)
+                
+        except Exception as e:
+            self.logger.error(f"AI模型改写失败: {str(e)}")
+            # 使用备用方案
+            return self._fallback_rewrite_prompt(original_prompt, retry_count)
+    
+    def _call_rewrite_api(self, instruction: str, task_id: str = None) -> Optional[str]:
+        """
+        调用AI模型进行prompt改写
+        
+        Args:
+            instruction: 改写指令
+            task_id: 任务ID（可选）
+            
+        Returns:
+            改写后的prompt，失败时返回None
+        """
+        try:
+            headers = {
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            payload = {
+                'model': self.model,
+                'messages': [
+                    {
+                        'role': 'system',
+                        'content': '你是一个专业的图像描述改写助手，擅长将敏感内容改写为适合图像生成的安全版本。'
+                    },
+                    {
+                        'role': 'user',
+                        'content': instruction
+                    }
+                ],
+                'temperature': 0.7,
+                'max_tokens': 500
+            }
+            
+            start_time = time.time()
+            response = requests.post(
+                f"{self.base_url}/api/v3/chat/completions",
+                headers=headers,
+                data=json.dumps(payload)
+            )
+            duration = time.time() - start_time
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                # 提取token使用情况
+                usage_info = {}
+                if 'usage' in result:
+                    usage_info = {
+                        'completion_tokens': result['usage'].get('completion_tokens', 0),
+                        'prompt_tokens': result['usage'].get('prompt_tokens', 0),
+                        'total_tokens': result['usage'].get('total_tokens', 0)
+                    }
+                
+                # 记录API调用
+                if task_id:
+                    db_manager.log_api_call(
+                        task_id,
+                        'doubao',
+                        'prompt_rewrite',
+                        'success',
+                        duration,
+                        request_data=payload,
+                        response_data=result,
+                        usage_info=usage_info
+                    )
+                
+                if 'choices' in result and len(result['choices']) > 0:
+                    rewritten_prompt = result['choices'][0]['message']['content'].strip()
+                    # 移除可能的引号
+                    rewritten_prompt = rewritten_prompt.strip('"').strip("'")
+                    return rewritten_prompt
+                else:
+                    self.logger.error("AI模型响应格式错误")
+                    return None
+            else:
+                error_msg = f"AI模型调用失败: {response.status_code} - {response.text}"
+                if task_id:
+                    db_manager.log_api_call(
+                        task_id,
+                        'doubao',
+                        'prompt_rewrite',
+                        'error',
+                        duration,
+                        error_msg,
+                        payload
+                    )
+                self.logger.error(error_msg)
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"调用AI模型失败: {str(e)}")
+            return None
+    
+    def _fallback_rewrite_prompt(self, original_prompt: str, retry_count: int) -> str:
+        """
+        备用prompt改写方案（当AI模型调用失败时使用）
+        
+        Args:
+            original_prompt: 原始prompt
+            retry_count: 重试次数
+            
+        Returns:
+            改写后的prompt
+        """
+        # 敏感词汇替换映射
+        sensitive_replacements = {
+            # 暴力相关
+            '打架': '争执',
+            '斗殴': '冲突',
+            '暴力': '激烈',
+            '血腥': '红色',
+            '死亡': '失去意识',
+            '杀人': '制服',
+            '伤害': '制服',
+            '攻击': '防御',
+            '战斗': '对峙',
+            '战争': '冲突',
+            
+            # 不当内容
+            '裸露': '穿着',
+            '性感': '优雅',
+            '诱惑': '吸引',
+            '暧昧': '亲密',
+            
+            # 其他敏感词
+            '政治': '社会',
+            '宗教': '信仰',
+            '种族': '文化',
+            '歧视': '差异'
+        }
+        
+        # 根据重试次数采用不同的改写策略
+        if retry_count == 1:
+            # 第一次重试：替换敏感词汇
+            new_prompt = original_prompt
+            for sensitive_word, replacement in sensitive_replacements.items():
+                if sensitive_word in new_prompt:
+                    new_prompt = new_prompt.replace(sensitive_word, replacement)
+                    self.logger.info(f"备用方案替换敏感词: {sensitive_word} -> {replacement}")
+            
+            # 添加艺术风格修饰
+            new_prompt += "，艺术风格，卡通化，适合全年龄段"
+            
+        elif retry_count == 2:
+            # 第二次重试：简化描述，移除可能敏感的部分
+            new_prompt = original_prompt
+            
+            # 移除可能敏感的动词
+            sensitive_verbs = ['打', '杀', '伤', '攻击', '战斗', '战争']
+            for verb in sensitive_verbs:
+                if verb in new_prompt:
+                    new_prompt = new_prompt.replace(verb, '面对')
+            
+            # 添加更多修饰词
+            new_prompt += "，温馨场景，和谐氛围，正能量"
+            
+        else:  # retry_count == 3
+            # 第三次重试：完全重写，使用最安全的描述
+            # 提取场景的核心元素
+            core_elements = []
+            
+            # 提取人物
+            if '人' in original_prompt or '者' in original_prompt or '员' in original_prompt:
+                core_elements.append('人物')
+            
+            # 提取环境
+            if '室' in original_prompt or '外' in original_prompt:
+                core_elements.append('环境')
+            
+            # 提取动作
+            if '站' in original_prompt or '坐' in original_prompt or '走' in original_prompt:
+                core_elements.append('动作')
+            
+            # 构建最安全的prompt
+            if core_elements:
+                new_prompt = f"温馨的{''.join(core_elements)}场景，和谐氛围，适合全年龄段观看"
+            else:
+                new_prompt = "温馨和谐的场景，适合全年龄段观看"
+        
+        self.logger.info(f"备用方案Prompt改写 | 重试次数: {retry_count} | 原始: {original_prompt} | 改写后: {new_prompt}")
+        return new_prompt 
