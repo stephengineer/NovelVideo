@@ -60,6 +60,8 @@ class DatabaseManager:
                     scene_description TEXT,
                     scene_content TEXT,
                     tts_audio_path TEXT,
+                    audio_words TEXT,
+                    audio_duration REAL,
                     image_path TEXT,
                     video_path TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -212,7 +214,7 @@ class DatabaseManager:
                 params = []
                 
                 for key, value in kwargs.items():
-                    if key in ['tts_audio_path', 'image_path', 'video_path']:
+                    if key in ['tts_audio_path', 'audio_words', 'audio_duration', 'image_path', 'video_path']:
                         update_fields.append(f'{key} = ?')
                         params.append(value)
                 
@@ -245,6 +247,32 @@ class DatabaseManager:
             self.logger.error(f"获取分镜脚本失败: {task_id}, 错误: {str(e)}")
             return []
     
+    def get_audio_words(self, task_id: str, scene_number: int) -> str:
+        """获取音频字数"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('SELECT audio_words FROM storyboards WHERE task_id = ? AND scene_number = ?', (task_id, scene_number))
+                row = cursor.fetchone()
+                return row[0] if row else None
+        except Exception as e:
+            self.logger.error(f"获取音频字数失败: {task_id}, 错误: {str(e)}")
+            return None
+    
+    def get_audio_duration(self, task_id: str, scene_number: int) -> float:
+        """获取音频时长"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('SELECT audio_duration FROM storyboards WHERE task_id = ? AND scene_number = ?', (task_id, scene_number))
+                row = cursor.fetchone()
+                return row[0] if row else None
+        except Exception as e:
+            self.logger.error(f"获取音频时长失败: {task_id}, 错误: {str(e)}")
+            return None
+
     def add_file_record(self, task_id: str, file_type: str, file_path: str,
                        file_size: int = None, checksum: str = None) -> bool:
         """添加文件记录"""
