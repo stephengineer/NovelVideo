@@ -113,11 +113,11 @@ class VideoGenService:
             
             # 调用豆包视频生成API
             response, duration = self._make_video_api_call(payload)
-            
+
             if response.status_code == 200:
                 result = response.json()
 
-                # 异步任务，需要轮询
+                # 同步任务，需要轮询
                 video_task_id = result.get('id')
                 poll_url = f"{self.base_url}/api/v3/contents/generations/tasks/{video_task_id}"
                 final_result = self._poll_task_status(video_task_id, poll_url)
@@ -281,7 +281,7 @@ class VideoGenService:
         
         return updated_content
     
-    def generate_video_from_text(self, prompt: str, task_id: str, scene_number: int, seed: int) -> bool:
+    def generate_video_from_text(self, prompt: str, task_id: str, scene_number: int, seed: int, novel_style: str = None) -> bool:
         """文生视频"""
         try:
             # 生成输出路径
@@ -294,6 +294,9 @@ class VideoGenService:
             # 保存原始prompt用于重试
             original_prompt = prompt
             
+            # TODO
+            # if novel_style:
+            #     prompt = prompt + f"画面风格: {novel_style}"
             # 在文本提示词后追加--[parameters]，控制视频输出的规格，包括宽高比、帧率、分辨率等。
             prompt = prompt + f" --rs {self.resolution} --seed {self.seed} --rt {self.ratio}"
             if self.duration == 10:
@@ -309,7 +312,7 @@ class VideoGenService:
             
             # 调用通用API方法，传递原始prompt用于重试
             if self._call_video_gen_api(task_id, self.model_pro, content, output_path, original_prompt):
-                return output_path
+                return str(output_path)
             else:
                 return None
             
@@ -317,7 +320,7 @@ class VideoGenService:
             self.logger.error(f"文生视频失败 | 任务: {task_id} | 错误: {str(e)}")
             return False
     
-    def generate_video_from_image(self, prompt: str, image_path: str, task_id: str, scene_number: int, seed: int) -> bool:
+    def generate_video_from_image(self, prompt: str, image_path: str, task_id: str, scene_number: int, seed: int, novel_style: str = None) -> bool:
         """
         从图像生成视频
         
@@ -339,7 +342,10 @@ class VideoGenService:
             self.seed = seed
             
             # 保存原始prompt用于重试
-            original_prompt = prompt
+            if novel_style:
+                original_prompt = prompt + ", 画面风格: " + novel_style
+            else:
+                original_prompt = prompt
             
             # 在文本提示词后追加--[parameters]，控制视频输出的规格，包括宽高比、帧率、分辨率等。
             prompt = prompt + f" --rs {self.resolution} --seed {self.seed}"
@@ -360,14 +366,16 @@ class VideoGenService:
                     "text": prompt
                 },
                 {
-                    "type": "image",
-                    "image": image_data
+                    "type": "image_url",
+                    "image_url": {
+                        "url": image_data
+                    }
                 }
             ]
 
             # 调用通用API方法，传递原始prompt用于重试
             if self._call_video_gen_api(task_id, self.model_i2v, content, output_path, original_prompt):
-                return output_path
+                return str(output_path)
             else:
                 return None
                     
