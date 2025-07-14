@@ -79,7 +79,7 @@ video_gen:
   model_t2v: "doubao-seedance-1-0-lite-t2v-250428"
   model_i2v: "doubao-seedance-1-0-lite-i2v-250428"
   callback_url: ""
-  resolution: "480p"
+  resolution: "720p"
   ratio: "9:16"
   duration: 5
   watermark: False
@@ -87,7 +87,7 @@ video_gen:
 
 # 视频处理配置
 video:
-  fps: 30
+  fps: 24
   resolution: [1920, 1080]
   codec: "libx264"
   audio_codec: "aac"
