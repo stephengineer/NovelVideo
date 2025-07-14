@@ -52,12 +52,11 @@ class VideoProcessor:
             voiceover_clip = AudioFileClip(audio_path)
             audio_duration_seconds = audio_duration / 1000
             
-            # 使用图片运镜生成视频
-            if image_path:
+            if video_path != "":
+                video_clip = self.modify_video_speed(video_path, audio_duration_seconds)
+            else:
                 # 图片运镜生成视频
                 video_clip = self.create_video_by_camera_movement(image_path, audio_duration_seconds)
-            else:
-                video_clip = self.modify_video_speed(video_path, audio_duration_seconds)
 
             audio_clips = [voiceover_clip]  # 基础音频轨道（配音）
                 
@@ -209,7 +208,7 @@ class VideoProcessor:
             repeated_clips = [modified_video_clip] * repeat_times
             extended_clip = concatenate_videoclips(repeated_clips)
             # 截取与音频时长相同的部分
-            final_clip = extended_clip.subclip(0, audio_duration_seconds)
+            final_clip = extended_clip.with_subclip(0, audio_duration_seconds)
         else:
             final_clip = modified_video_clip
         
