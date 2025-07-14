@@ -176,7 +176,7 @@ class ImageGenService:
             return False
     
     def generate_scene_image(self, scene_content: str, task_id: str, 
-                           scene_number: int, seed: int, scene_type: str = None) -> Optional[str]:
+                           scene_number: int, seed: int, novel_style: str = None) -> Optional[str]:
         """
         为场景生成图像
         
@@ -184,14 +184,14 @@ class ImageGenService:
             scene_content: 场景内容
             task_id: 任务ID
             scene_number: 场景编号
-            scene_type: 场景类型（室内/室外/特写等）
+            novel_style: 小说风格
             
         Returns:
             图像文件路径
         """
         try:
             # 根据场景类型优化提示词
-            enhanced_prompt = self._enhance_prompt(scene_content, scene_type)
+            enhanced_prompt = self._enhance_prompt(scene_content, novel_style)
             
             # 生成输出路径
             output_dir = config.get_path('temp_dir') / task_id / 'images'
@@ -210,21 +210,12 @@ class ImageGenService:
             self.logger.error(f"场景图像生成失败 | 任务: {task_id} | 场景: {scene_number} | 错误: {str(e)}")
             return None
     
-    def _enhance_prompt(self, scene_content: str, scene_type: str = None) -> str:
+    def _enhance_prompt(self, scene_content: str, novel_style: str = None) -> str:
         """增强图像生成提示词"""
         # 基础提示词
         prompt = f"{scene_content}"
-        
-        # 根据场景类型添加特定描述
-        if scene_type:
-            if scene_type == "室内":
-                prompt += "，室内场景，温暖光线"
-            elif scene_type == "室外":
-                prompt += "，室外场景，自然光线"
-            elif scene_type == "特写":
-                prompt += "，特写镜头，细节丰富"
-            elif scene_type == "远景":
-                prompt += "，远景镜头，广阔视野"
+        if novel_style:
+            prompt += f", 画面风格: {novel_style}, "
         
         # 添加通用质量提升词
         # prompt += "，8K超高清，电影级画质，专业摄影"
@@ -296,7 +287,14 @@ class ImageGenService:
                 if image_url and self._download_file(image_url, output_path):
                     retry_info = f" | 重试次数: {retry_count}" if retry_count else ""
                     self.logger.info(f"图像生成下载成功 | 任务: {task_id} | 文件: {output_path}{retry_info}")
-                    db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'success', duration, request_data=payload, response_data=result)
+                    # 提取token使用情况
+                    usage_info = {}
+                    if 'usage' in result:
+                        usage_info = {
+                            'completion_tokens': result['usage'].get('output_tokens', 0),
+                            'total_tokens': result['usage'].get('total_tokens', 0)
+                        }
+                    db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'success', duration, request_data=payload, response_data=result, usage_info=usage_info)
                     return True
                 else:
                     raise Exception("下载图像文件失败")
@@ -309,7 +307,14 @@ class ImageGenService:
                         f.write(base64.b64decode(image_data))
                     retry_info = f" | 重试次数: {retry_count}" if retry_count else ""
                     self.logger.info(f"图像生成解析成功 | 任务: {task_id} | 文件: {output_path}{retry_info}")
-                    db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'success', duration, request_data=payload, response_data=result)
+                    # 提取token使用情况
+                    usage_info = {}
+                    if 'usage' in result:
+                        usage_info = {
+                            'completion_tokens': result['usage'].get('output_tokens', 0),
+                            'total_tokens': result['usage'].get('total_tokens', 0)
+                        }
+                    db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'success', duration, request_data=payload, response_data=result, usage_info=usage_info)
                     return True
                 else:
                     raise Exception("解析图像数据失败")
