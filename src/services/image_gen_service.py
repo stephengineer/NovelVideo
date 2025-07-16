@@ -258,7 +258,7 @@ class ImageGenService:
             retry_count: 重试次数（可选）
         """
         retry_info = f" | 重试次数: {retry_count}" if retry_count else ""
-        error_msg = f"文生图API调用失败: {response.status_code} - {response.text}{retry_info}"
+        error_msg = f"文生图API调用失败: {response.status_code} - {retry_info}"
         self.logger.warning(error_msg)
         db_manager.log_api_call(task_id, 'doubao', 'image_generate', 'error', duration, error_msg, payload, response)
     
