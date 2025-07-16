@@ -58,7 +58,6 @@ class DatabaseManager:
                     task_id TEXT NOT NULL,
                     scene_number INTEGER NOT NULL,
                     scene_description TEXT,
-                    scene_content TEXT,
                     tts_audio_path TEXT,
                     audio_words TEXT,
                     audio_duration REAL,
@@ -187,17 +186,16 @@ class DatabaseManager:
             self.logger.error(f"获取任务列表失败: {status}, 错误: {str(e)}")
             return []
     
-    def add_storyboard(self, task_id: str, scene_number: int, scene_description: str,
-                      scene_content: str) -> str:
+    def add_storyboard(self, task_id: str, scene_number: int, scene_description: str) -> str:
         """添加分镜脚本"""
         try:
             storyboard_id = f"{task_id}_scene_{scene_number}"
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    INSERT INTO storyboards (id, task_id, scene_number, scene_description, scene_content)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (storyboard_id, task_id, scene_number, scene_description, scene_content))
+                    INSERT INTO storyboards (id, task_id, scene_number, scene_description)
+                    VALUES (?, ?, ?, ?)
+                ''', (storyboard_id, task_id, scene_number, scene_description))
                 conn.commit()
                 return storyboard_id
         except Exception as e:
