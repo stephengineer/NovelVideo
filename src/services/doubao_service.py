@@ -72,12 +72,9 @@ class DoubaoService:
     def _build_analysis_prompt(self, novel_text: str) -> str:
         """构建分析提示词"""
         return f"""
-分析给定的小说内容，并生成详细的分镜脚本。请仔细阅读小说内容，按照要求进行处理。以下是具体要求：
-1. 将小说内容分解为多个场景(分镜), 场景数量小于20个
-2. 每个场景包含：画面内容、旁白内容
+仔细阅读小说, 按照时间顺序和故事结构进行分类和重新排列。根据情节的发展和角色的心理变化, 理解剧本的核心内涵和叙述逻辑。分镜数量小于20个。
 <小说内容>
 {novel_text}
-</小说内容>
 """
     
     def _call_api(self, prompt: str, task_id: str) -> Dict[str, Any]:
@@ -93,7 +90,7 @@ class DoubaoService:
             'messages': [
                 {
                     "role": "system",
-                    "content": "你是一位小说分析、解读专家"
+                    "content": "你是小说拆解专家,擅长将小说进行分析、分解及转化为分镜脚本。"
                 },
                 {
                     'role': 'user',
@@ -119,7 +116,8 @@ class DoubaoService:
                             },
                             "style": {
                                 "type": "string",
-                                "description": "小说风格"
+                                "description": "小说风格",
+                                "enum": ["武侠古风", "都市言情", "悬疑推理", "民间故事", "其他"]
                             },
                             "scenes": {
                                 "type": "array",
@@ -128,20 +126,15 @@ class DoubaoService:
                                     "properties": {
                                         "scene_number": {
                                             "type": "integer",
-                                            "description": "场景编号"
-                                        },
-                                        "scene_content": {
-                                            "type": "string",
-                                            "description": "画面内容"
+                                            "description": "分镜编号"
                                         },
                                         "scene_description": {
                                             "type": "string",
-                                            "description": "场景描述, 小于100字"
+                                            "description": ""
                                         }
                                     },
                                     "required": [
                                         "scene_number",
-                                        "scene_content",
                                         "scene_description"
                                     ],
                                     "additionalProperties": False
