@@ -34,6 +34,7 @@ doubao:
   base_url: "https://ark.cn-beijing.volces.com"
   api_key: "${DOUBAO_API_KEY}"
   model: "doubao-seed-1.6-flash-250615"
+  # model: "doubao-seed-1-6-250615"
   thinking: "disabled"
   max_tokens: 4096
   frequency_penalty: 0
