@@ -17,7 +17,7 @@ from PIL import Image
 from ..core import config, get_logger, db_manager
 from ..services.subtitle_service import add_timed_subtitles
 
-from moviepy import ImageSequenceClip
+from moviepy.audio.fx.MultiplyVolume import MultiplyVolume
 import tempfile
 
 class VideoProcessor:
@@ -27,7 +27,7 @@ class VideoProcessor:
         self.video_config = config.get('video', {})
         self.logger = get_logger('video_processor')
     
-    def create_scene_video(self, image_path: str, video_path: str, audio_path: str, audio_duration: float, audio_words: str, text_content: str,
+    def create_scene_video(self, image_path: str, video_path: str, audio_path: str, audio_duration: float, audio_words: str,
                           output_path: str, task_id: str, scene_number: int,
                           font_config=None, sound_effects: Optional[List[Tuple[str, float, float]]] = None) -> bool:
         """
@@ -36,7 +36,7 @@ class VideoProcessor:
         Args:
             video_path: 背景视频路径
             audio_path: 配音音频路径
-            text_content: 字幕文本
+            audio_words: 字幕文本
             output_path: 输出视频路径
             task_id: 任务ID
             scene_number: 场景编号
@@ -59,18 +59,6 @@ class VideoProcessor:
                 video_clip = self.create_video_by_camera_movement(image_path, audio_duration_seconds)
 
             audio_clips = [voiceover_clip]  # 基础音频轨道（配音）
-                
-            # 添加背景音乐
-            # if music_path and os.path.exists(music_path):
-            #     with AudioFileClip(music_path) as music_clip:
-            #         # 调整背景音乐长度
-            #         if music_clip.duration < video_duration:
-            #             music_clip = music_clip.loop(duration=video_duration)
-            #         else:
-            #             music_clip = music_clip.subclip(0, video_duration)
-            #         # 背景音乐音量设为配音的30%
-            #         music_clip = music_clip.volumex(0.3)
-            #         audio_clips.append(music_clip)
                 
             # 添加音效
             # if sound_effects:
@@ -100,7 +88,14 @@ class VideoProcessor:
             try:
                 final_video.write_videofile(output_path, fps=final_video.fps)
             except:
-                final_video.write_videofile(output_path, fps=30)
+                final_video.write_videofile(
+                    output_path,
+                    fps=24,
+                    codec="libx264",  # 视频编码（通用）
+                    audio_codec="aac",  # 音频编码（强制使用AAC，兼容性强）
+                    bitrate="5000k",
+                    audio_bitrate="128k"  # 音频比特率（可选，确保音质）
+                )
             
             self.logger.info(f"场景视频处理完成 | 任务: {task_id} | 场景: {scene_number} | 文件: {output_path}")
             return True
@@ -187,7 +182,7 @@ class VideoProcessor:
             return np.array(scaled_img)
         
         # 生成基础视频剪辑
-        return  VideoClip(make_frame, duration=duration).with_fps(30)
+        return  VideoClip(make_frame, duration=duration).with_fps(24)
 
 
     def modify_video_speed(self, video_path, audio_duration_seconds):
@@ -215,7 +210,7 @@ class VideoProcessor:
         return final_clip
 
     def merge_scene_videos(self, scene_videos: List[str], output_path: str, 
-                          task_id: str, transition_duration: float = None) -> bool:
+                          task_id: str, transition_duration: float = None, music_path: str = None) -> bool:
         """
         合并多个场景视频
         
@@ -255,6 +250,30 @@ class VideoProcessor:
             
             # 合并视频片段
             final_video = concatenate_videoclips(video_clips, method="compose")
+            video_duration = final_video.duration
+
+            # 获取原视频的音频（旁白）
+            original_audio = final_video.audio
+
+            # 添加背景音乐
+            music_clip = AudioFileClip(music_path)
+            # 调整背景音乐长度
+            if music_clip.duration < video_duration:
+                music_clip = music_clip.loop(duration=video_duration)
+            else:
+                music_clip = music_clip.with_start(0).with_end(video_duration)
+            # 背景音乐音量设为配音的30%
+            music_clip = music_clip.with_effects([MultiplyVolume(0.5)])
+
+            # 关键修改：将原音频（旁白）和背景音乐混合
+            if original_audio is not None:
+                # 混合两个音频轨道
+                final_audio = CompositeAudioClip([original_audio, music_clip])
+            else:
+                # 如果原视频没有音频，直接使用背景音乐
+                final_audio = music_clip
+
+            final_video = final_video.with_audio(final_audio)
             
             # 写入最终视频
             final_video.write_videofile(
