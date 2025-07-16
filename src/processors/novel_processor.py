@@ -137,13 +137,13 @@ class NovelProcessor:
                     task_id=task_id,
                     scene_number=scene['scene_number'],
                     scene_description=scene['scene_description'],
-                    scene_content=scene['scene_content']
                 )
         except Exception as e:
             self.logger.error(f"保存分镜脚本失败: {task_id}, 错误: {str(e)}")
     
     def _generate_scene_assets(self, task_id: str, storyboard: Dict[str, Any]) -> Optional[Dict[int, Dict[str, str]]]:
         """为每个场景生成素材（音频、图像、视频）"""
+        novel_style = storyboard.get('style', '武侠古风')
         try:
             scenes = storyboard.get('scenes', [])
             scene_assets = {}
@@ -154,7 +154,6 @@ class NovelProcessor:
 
             for scene in scenes:
                 scene_number = scene['scene_number']
-                scene_content = scene['scene_content']
                 scene_description = scene['scene_description']
                 
                 self.logger.info(f"生成场景素材 | 任务: {task_id} | 场景: {scene_number}")
@@ -169,14 +168,15 @@ class NovelProcessor:
                 # 根据场景编号决定生成策略
                 if scene_number < 3:
                     # 文生视频：前2个场景使用文本生成视频
-                    video_prompt = scene_content
+                    video_prompt = scene_description + f".画面风格: {novel_style}."
                     video_path = self.video_gen_service.generate_video_from_text(
                         video_prompt, task_id, scene_number, seed
                     )
                 else:
                     # 图片运镜视频：后续场景先生成图片，再生成运镜视频
+                    image_prompt = scene_description + f".画面风格: {novel_style}."
                     image_path = self.image_gen_service.generate_scene_image(
-                        scene_content, task_id, scene_number, seed
+                        image_prompt, task_id, scene_number, seed
                     )
 
                 if audio_path and (image_path or video_path):
@@ -263,11 +263,17 @@ class NovelProcessor:
             # 确保输出目录存在
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             
+            # 获取背景音乐
+            import random
+            music_path = random.choice(os.listdir('/Users/zhongqi/Documents/dev/NovelVideo/assets/bgm'))
+            music_path = '/Users/zhongqi/Documents/dev/NovelVideo/assets/bgm/' + music_path
+
             # 合并场景视频
             success = self.video_processor.merge_scene_videos(
                 scene_videos=scene_videos,
                 output_path=str(output_path),
-                task_id=task_id
+                task_id=task_id,
+                music_path=music_path
             )
             
             if success:
