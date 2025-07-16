@@ -175,23 +175,23 @@ class ImageGenService:
             self.logger.error(f"下载文件失败: {str(e)}")
             return False
     
-    def generate_scene_image(self, scene_content: str, task_id: str, 
-                           scene_number: int, seed: int, novel_style: str = None) -> Optional[str]:
+    def generate_scene_image(self, image_prompt: str, task_id: str, 
+                           scene_number: int, seed: int) -> Optional[str]:
         """
         为场景生成图像
         
         Args:
-            scene_content: 场景内容
+            scene_description: 场景描述
             task_id: 任务ID
             scene_number: 场景编号
-            novel_style: 小说风格
+            seed: 随机种子
             
         Returns:
             图像文件路径
         """
         try:
             # 根据场景类型优化提示词
-            enhanced_prompt = self._enhance_prompt(scene_content, novel_style)
+            enhanced_prompt = self._enhance_prompt(image_prompt)
             
             # 生成输出路径
             output_dir = config.get_path('temp_dir') / task_id / 'images'
@@ -210,12 +210,10 @@ class ImageGenService:
             self.logger.error(f"场景图像生成失败 | 任务: {task_id} | 场景: {scene_number} | 错误: {str(e)}")
             return None
     
-    def _enhance_prompt(self, scene_content: str, novel_style: str = None) -> str:
+    def _enhance_prompt(self, scene_description: str) -> str:
         """增强图像生成提示词"""
         # 基础提示词
-        prompt = f"{scene_content}"
-        if novel_style:
-            prompt += f", 画面风格: {novel_style}, "
+        prompt = f"{scene_description}"
         
         # 添加通用质量提升词
         # prompt += "，8K超高清，电影级画质，专业摄影"

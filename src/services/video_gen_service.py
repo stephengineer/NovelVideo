@@ -281,7 +281,7 @@ class VideoGenService:
         
         return updated_content
     
-    def generate_video_from_text(self, prompt: str, task_id: str, scene_number: int, seed: int, novel_style: str = None) -> bool:
+    def generate_video_from_text(self, prompt: str, task_id: str, scene_number: int, seed: int) -> bool:
         """文生视频"""
         try:
             # 生成输出路径
@@ -294,9 +294,6 @@ class VideoGenService:
             # 保存原始prompt用于重试
             original_prompt = prompt
             
-            # TODO
-            # if novel_style:
-            #     prompt = prompt + f"画面风格: {novel_style}"
             # 在文本提示词后追加--[parameters]，控制视频输出的规格，包括宽高比、帧率、分辨率等。
             prompt = prompt + f" --rs {self.resolution} --seed {self.seed} --rt {self.ratio}"
             if self.duration == 10:
