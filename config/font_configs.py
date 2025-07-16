@@ -25,8 +25,8 @@ FONT_CONFIGS = [
     FontConfig(
         name="yellow_black",
         font_path=str(FONT_BASE_PATH / "NotoSansSC-Regular.ttf"),
-        max_chars=10,
-        font_size=50,
+        max_chars=8,
+        font_size=40,
         font_color="yellow",
         stroke_color="black",
         stroke_width=2
