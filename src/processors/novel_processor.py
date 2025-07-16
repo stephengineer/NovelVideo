@@ -231,7 +231,6 @@ class NovelProcessor:
                     audio_path=assets['audio_path'],
                     audio_duration=assets['audio_duration'],
                     audio_words=assets['audio_words'],
-                    text_content=assets['scene_description'],
                     output_path=str(output_path),
                     task_id=task_id,
                     scene_number=scene_number,
