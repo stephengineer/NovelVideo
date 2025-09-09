@@ -143,7 +143,8 @@ class NovelProcessor:
     
     def _generate_scene_assets(self, task_id: str, storyboard: Dict[str, Any]) -> Optional[Dict[int, Dict[str, str]]]:
         """为每个场景生成素材（音频、图像、视频）"""
-        novel_style = storyboard.get('style', '武侠古风')
+        # novel_style = storyboard.get('style', '武侠古风')
+        novel_style = '武侠古风, 动漫二次元风格'
         try:
             scenes = storyboard.get('scenes', [])
             scene_assets = {}
@@ -166,7 +167,7 @@ class NovelProcessor:
                 image_path = ""
                 video_path = ""
                 # 根据场景编号决定生成策略
-                if scene_number < 3:
+                if scene_number < -3:
                     # 文生视频：前2个场景使用文本生成视频
                     video_prompt = scene_description + f".画面风格: {novel_style}."
                     video_path = self.video_gen_service.generate_video_from_text(

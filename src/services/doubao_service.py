@@ -130,7 +130,7 @@ class DoubaoService:
                                         },
                                         "scene_description": {
                                             "type": "string",
-                                            "description": ""
+                                            "description": "场景描述"
                                         }
                                     },
                                     "required": [
