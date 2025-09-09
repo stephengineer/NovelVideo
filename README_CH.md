@@ -154,134 +154,134 @@ for file in data/input/*.txt; do
 done
 ```
 
-## Configuration
+## 配置说明
 
-### Main Configuration Items
+### 主要配置项
 
 ```yaml
-# Project configuration
+# 项目配置
 project:
   name: "novel_video_generator"
   version: "1.0.0"
 
-# File path configuration
+# 文件路径配置
 paths:
   input_dir: "data/input"
   output_dir: "data/output"
   temp_dir: "data/temp"
   logs_dir: "logs"
 
-# Task scheduling configuration
+# 任务调度配置
 scheduler:
   max_concurrent_tasks: 3
   task_timeout: 3600
   retry_attempts: 3
 
-# Video processing configuration
+# 视频处理配置
 video:
   fps: 30
   resolution: [1920, 1080]
   codec: "libx264"
   bitrate: "5000k"
 
-# Storyboard configuration
+# 分镜脚本配置
 storyboard:
   max_scenes_per_chapter: 10
   min_scene_duration: 5
   max_scene_duration: 30
 ```
 
-## API Service Configuration
+## API服务配置
 
-### Doubao Large Language Model API
-Used for novel analysis and storyboard script generation. API key and endpoint need to be configured in the configuration file.
+### 豆包大模型API
+用于小说分析和分镜脚本生成，需要在配置文件中设置API密钥和端点。
 
-### Doubao API Services
-Doubao series services use unified API keys, including:
-- **Doubao Large Language Model Service**: Novel analysis and storyboard script generation
-- **Doubao TTS Service**: Text-to-speech conversion
-- **Doubao Text-to-Image Service**: Text-to-image generation
-- **Doubao Image-to-Video Service**: Image-to-video generation
+### 豆包API服务
+豆包系列服务使用统一的API密钥，包括：
+- **豆包大模型服务**：小说分析和分镜脚本生成
+- **豆包语音服务**：文本转语音
+- **豆包文生图服务**：文本生成图像
+- **豆包图生视频服务**：图像生成视频
 
-Specific API calling methods need to be adjusted according to Volcengine's official documentation.
+具体的API调用方式需要根据火山引擎的官方文档进行调整。
 
-## Monitoring and Logging
+## 监控和日志
 
-### Log Files
-- `logs/novel_video_YYYY-MM-DD.log`: Main log file
-- `logs/error_YYYY-MM-DD.log`: Error log file
+### 日志文件
+- `logs/novel_video_YYYY-MM-DD.log`：主要日志文件
+- `logs/error_YYYY-MM-DD.log`：错误日志文件
 
-### Database Monitoring
-The system uses SQLite database to store task status and file information. You can view it using:
+### 数据库监控
+系统使用SQLite数据库存储任务状态和文件信息，可以通过以下方式查看：
 ```bash
 sqlite3 data/database/novel_video.db
 ```
 
-### Performance Monitoring
-The system provides detailed performance monitoring information, including:
-- API call statistics
-- Task execution time
-- Resource usage
+### 性能监控
+系统提供详细的性能监控信息，包括：
+- API调用统计
+- 任务执行时间
+- 资源使用情况
 
-## Troubleshooting
+## 故障排除
 
-### Common Issues
+### 常见问题
 
-1. **API call failures**
-   - Check API key configuration
-   - Verify network connection
-   - Check API quota limits
+1. **API调用失败**
+   - 检查API密钥配置
+   - 确认网络连接
+   - 查看API配额限制
 
-2. **Video generation failures**
-   - Check FFmpeg installation
-   - Ensure sufficient disk space
-   - Check temporary file permissions
+2. **视频生成失败**
+   - 检查FFmpeg安装
+   - 确认磁盘空间充足
+   - 查看临时文件权限
 
-3. **Task timeouts**
-   - Adjust task timeout configuration
-   - Check system resource usage
-   - Optimize concurrency settings
+3. **任务超时**
+   - 调整任务超时配置
+   - 检查系统资源使用
+   - 优化并发设置
 
-### Debug Mode
-Enable detailed logging:
+### 调试模式
+启用详细日志：
 ```bash
-# Modify log level in configuration file
+# 修改配置文件中的日志级别
 logging:
   level: "DEBUG"
 ```
 
-## Development Guide
+## 开发指南
 
-### Adding New Services
-1. Create a new service class in the `src/services/` directory
-2. Inherit from `VolcengineService` or create an independent service class
-3. Implement corresponding API calling methods
-4. Integrate the new service in `NovelProcessor`
+### 添加新的服务
+1. 在 `src/services/` 目录下创建新的服务类
+2. 继承 `VolcengineService` 或创建独立服务类
+3. 实现相应的API调用方法
+4. 在 `NovelProcessor` 中集成新服务
 
-### Extending Processors
-1. Create a new processor in the `src/processors/` directory
-2. Implement corresponding processing methods
-3. Register new task types in the task scheduler
+### 扩展处理器
+1. 在 `src/processors/` 目录下创建新的处理器
+2. 实现相应的处理方法
+3. 在任务调度器中注册新的任务类型
 
-### Custom Configuration
-1. Modify the `config/config.yaml` file
-2. Use `config.get()` in code to retrieve configuration
-3. Support environment variable overrides
+### 自定义配置
+1. 修改 `config/config.yaml` 文件
+2. 在代码中使用 `config.get()` 获取配置
+3. 支持环境变量覆盖
 
-## License
+## 许可证
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+本项目采用 MIT 许可证，详见 LICENSE 文件。
 
-## Contributing
+## 贡献指南
 
-We welcome contributions! Please feel free to submit Issues and Pull Requests to improve the project.
+欢迎提交 Issue 和 Pull Request 来改进项目。
 
-## Contact
+## 联系方式
 
-If you have questions or suggestions, please contact us through:
-- Submit a GitHub Issue
-- Send an email to the project maintainer
+如有问题或建议，请通过以下方式联系：
+- 提交 GitHub Issue
+- 发送邮件至项目维护者
 
 ---
 
-**Note**: Using this system requires appropriate API keys and quotas. Please ensure compliance with each service provider's terms of use. 
+**注意**：使用本系统需要相应的API密钥和配额，请确保遵守各服务商的使用条款。 
