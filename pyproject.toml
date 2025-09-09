@@ -5,5 +5,10 @@ description = "Convert text to video"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "dotenv>=0.9.9",
+    "loguru>=0.7.3",
+    "moviepy>=2.2.1",
+    "numpy>=2.3.2",
     "pyyaml>=6.0.2",
+    "requests>=2.32.5",
 ]
